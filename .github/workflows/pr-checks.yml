@@ -1,0 +1,88 @@
+name: Validacion de Pull Request
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  validar:
+    name: Politicas de Pull Request
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validar nomenclatura del titulo (Conventional Commits)
+        env:
+          TITULO: ${{ github.event.pull_request.title }}
+        run: |
+          echo "Titulo recibido: $TITULO"
+          if echo "$TITULO" | grep -Eq '^(feat|fix|docs|test|refactor|ci|chore|style)(\([a-z0-9-]+\))?: .{5,}'; then
+            echo "El titulo cumple la convencion."
+          else
+            echo "::error::El titulo debe seguir Conventional Commits. Ejemplo: feat(planeacion): registrar planeacion por parcial"
+            exit 1
+          fi
+
+      - name: Exigir issue enlazado
+        env:
+          CUERPO: ${{ github.event.pull_request.body }}
+        run: |
+          if echo "$CUERPO" | grep -Eiq '(closes|close|fixes|fix|resolves|resolve|refs) #[0-9]+'; then
+            echo "El Pull Request esta enlazado a un issue."
+          else
+            echo "::error::La descripcion debe enlazar el issue que resuelve. Ejemplo: Closes #14"
+            exit 1
+          fi
+
+      - name: Etiquetar por tamano y asignar al autor
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const cambios = pr.additions + pr.deletions;
+            let etiqueta = 'tamano/XS';
+            if (cambios > 1000) etiqueta = 'tamano/XL';
+            else if (cambios > 500) etiqueta = 'tamano/L';
+            else if (cambios > 200) etiqueta = 'tamano/M';
+            else if (cambios > 50) etiqueta = 'tamano/S';
+
+            const colores = {
+              'tamano/XS': 'c2e0c6',
+              'tamano/S': 'bfd4f2',
+              'tamano/M': 'fbca04',
+              'tamano/L': 'd93f0b',
+              'tamano/XL': 'b60205'
+            };
+
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: etiqueta,
+                color: colores[etiqueta]
+              });
+            } catch (e) {
+              core.info('La etiqueta ya existia.');
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: [etiqueta]
+            });
+
+            if (!pr.assignee) {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                assignees: [pr.user.login]
+              });
+            }
+
+            core.info(`Pull Request etiquetado como ${etiqueta} (${cambios} lineas modificadas).`);

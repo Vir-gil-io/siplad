@@ -1,0 +1,37 @@
+name: CodeQL - Escaneo de seguridad del codigo
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '23 6 * * 1'
+
+permissions:
+  security-events: write
+  actions: read
+  contents: read
+
+jobs:
+  analizar:
+    name: Analisis estatico conforme a OWASP
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar codigo
+        uses: actions/checkout@v4
+
+      - name: Inicializar CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Construccion automatica
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Ejecutar analisis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

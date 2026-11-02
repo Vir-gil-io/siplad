@@ -1,0 +1,109 @@
+name: CI - Construccion y pruebas
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (NestJS)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar codigo
+        uses: actions/checkout@v4
+
+      - name: Detectar si el backend ya esta inicializado
+        id: detectar
+        run: |
+          if [ -f backend/package.json ]; then
+            echo "existe=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "existe=false" >> "$GITHUB_OUTPUT"
+            echo "El backend aun no esta inicializado; se omite este job."
+          fi
+
+      - name: Preparar Node.js 22
+        if: steps.detectar.outputs.existe == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias
+        if: steps.detectar.outputs.existe == 'true'
+        working-directory: backend
+        run: npm ci
+
+      - name: Generar cliente de Prisma
+        if: steps.detectar.outputs.existe == 'true'
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Compilar
+        if: steps.detectar.outputs.existe == 'true'
+        working-directory: backend
+        run: npm run build
+
+      - name: Pruebas unitarias
+        if: steps.detectar.outputs.existe == 'true'
+        working-directory: backend
+        run: npm run test -- --passWithNoTests
+
+      - name: Auditoria de dependencias (OWASP A06)
+        if: steps.detectar.outputs.existe == 'true'
+        working-directory: backend
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+  frontend:
+    name: Frontend (React + Vite)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar codigo
+        uses: actions/checkout@v4
+
+      - name: Detectar si el frontend ya esta inicializado
+        id: detectar
+        run: |
+          if [ -f frontend/package.json ]; then
+            echo "existe=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "existe=false" >> "$GITHUB_OUTPUT"
+            echo "El frontend aun no esta inicializado; se omite este job."
+          fi
+
+      - name: Preparar Node.js 22
+        if: steps.detectar.outputs.existe == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        if: steps.detectar.outputs.existe == 'true'
+        working-directory: frontend
+        run: npm ci
+
+      - name: Compilar
+        if: steps.detectar.outputs.existe == 'true'
+        working-directory: frontend
+        run: npm run build
+
+      - name: Pruebas
+        if: steps.detectar.outputs.existe == 'true'
+        working-directory: frontend
+        continue-on-error: true
+        run: npm run test --if-present
+
+      - name: Auditoria de dependencias (OWASP A06)
+        if: steps.detectar.outputs.existe == 'true'
+        working-directory: frontend
+        continue-on-error: true
+        run: npm audit --audit-level=high
