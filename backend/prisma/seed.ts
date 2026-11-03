@@ -195,6 +195,11 @@ async function main() {
           planeacionId: planeacion.id,
           porcentaje: c.avance.porcentaje,
           estado: c.avance.estado,
+          // El tramo informado se siembra como el periodo transcurrido hasta
+          // hoy, acotado al cierre del periodo academico: asi los datos de
+          // demostracion son coherentes con la regla que impone el servicio.
+          fechaInicio: periodoActivo.fechaInicio,
+          fechaFin: new Date(Math.min(periodoActivo.fechaFin.getTime(), Date.now())),
           observaciones:
             c.avance.estado === EstadoAvance.NO_CUMPLIDO
               ? 'Se perdieron sesiones por suspension oficial de labores.'

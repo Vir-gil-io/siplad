@@ -11,6 +11,7 @@ import { RetornoGoogle } from './pages/RetornoGoogle';
 import { MisPlaneaciones } from './pages/MisPlaneaciones';
 import { MisAvances } from './pages/MisAvances';
 import { MisEvidencias } from './pages/MisEvidencias';
+import { SeguimientoAvances } from './pages/SeguimientoAvances';
 import { RevisionPlaneaciones } from './pages/RevisionPlaneaciones';
 import { ValidacionEvidencias } from './pages/ValidacionEvidencias';
 
@@ -79,6 +80,14 @@ export function App() {
             element={
               <RutaProtegida rolesPermitidos={['COORDINADOR']}>
                 <RevisionPlaneaciones />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/seguimiento"
+            element={
+              <RutaProtegida rolesPermitidos={['COORDINADOR']}>
+                <SeguimientoAvances />
               </RutaProtegida>
             }
           />

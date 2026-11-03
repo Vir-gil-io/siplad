@@ -51,11 +51,29 @@ const planeacion = (id, estado, parcial, avance) => ({
   materiaId: materias[0].id,
   periodoId: periodo.id,
   materia: materias[0],
-  periodo: { id: periodo.id, nombre: periodo.nombre, anio: periodo.anio },
+  periodo: {
+    id: periodo.id,
+    nombre: periodo.nombre,
+    anio: periodo.anio,
+    fechaInicio: periodo.fechaInicio,
+    fechaFin: periodo.fechaFin,
+  },
   usuario: docente,
   revisadoPor: estado === 'ENVIADA' ? null : { id: coordinador.id, nombre: coordinador.nombre },
   avance: avance ?? null,
 });
+
+const avanceDeEjemplo = {
+  id: 'av1',
+  porcentaje: 92,
+  estado: 'CUMPLIDO',
+  fechaInicio: '2026-08-17T00:00:00.000Z',
+  fechaFin: '2026-09-26T23:59:59.999Z',
+  diasHabiles: 27,
+  observaciones: null,
+  registradoEn: '2026-10-05T12:00:00.000Z',
+  planeacionId: 'pl1',
+};
 
 const RUTAS = {
   'POST /api/auth/login': (cuerpo) => {
@@ -80,17 +98,33 @@ const RUTAS = {
 
   'GET /api/catalogos/materias': () => ({ estado: 200, datos: materias }),
   'GET /api/catalogos/periodos/activo': () => ({ estado: 200, datos: periodo }),
+  'GET /api/catalogos/periodos': () => ({ estado: 200, datos: [periodo] }),
+
+  'GET /api/avances': () => ({
+    estado: 200,
+    datos: [
+      {
+        ...avanceDeEjemplo,
+        planeacion: planeacion('pl1', 'APROBADA', 1, null),
+      },
+      {
+        ...avanceDeEjemplo,
+        id: 'av2',
+        porcentaje: 55,
+        estado: 'NO_CUMPLIDO',
+        fechaInicio: '2026-09-28T00:00:00.000Z',
+        fechaFin: '2026-10-23T23:59:59.999Z',
+        diasHabiles: 18,
+        observaciones: 'Se perdieron sesiones por suspension oficial de labores.',
+        planeacionId: 'pl2',
+        planeacion: planeacion('pl2', 'APROBADA', 2, null),
+      },
+    ],
+  }),
 
   'GET /api/planeaciones': (_c, _a, consulta) => {
     const todas = [
-      planeacion('pl1', 'APROBADA', 1, {
-        id: 'av1',
-        porcentaje: 92,
-        estado: 'CUMPLIDO',
-        observaciones: null,
-        registradoEn: '2026-10-05T12:00:00.000Z',
-        planeacionId: 'pl1',
-      }),
+      planeacion('pl1', 'APROBADA', 1, avanceDeEjemplo),
       planeacion('pl2', 'APROBADA', 2, null),
       planeacion('pl3', 'ENVIADA', 3, null),
       planeacion('pl4', 'AJUSTES_SOLICITADOS', 1, null),
@@ -114,7 +148,13 @@ const RUTAS = {
         creadaEn: '2026-09-16T12:00:00.000Z',
         usuarioId: docente.id,
         usuario: docente,
-        periodo: { id: periodo.id, nombre: periodo.nombre, anio: periodo.anio },
+        periodo: {
+    id: periodo.id,
+    nombre: periodo.nombre,
+    anio: periodo.anio,
+    fechaInicio: periodo.fechaInicio,
+    fechaFin: periodo.fechaFin,
+  },
         validadoPor: { id: coordinador.id, nombre: coordinador.nombre },
       },
       {
@@ -130,7 +170,13 @@ const RUTAS = {
         creadaEn: '2026-10-03T12:00:00.000Z',
         usuarioId: docente.id,
         usuario: docente,
-        periodo: { id: periodo.id, nombre: periodo.nombre, anio: periodo.anio },
+        periodo: {
+    id: periodo.id,
+    nombre: periodo.nombre,
+    anio: periodo.anio,
+    fechaInicio: periodo.fechaInicio,
+    fechaFin: periodo.fechaFin,
+  },
         validadoPor: null,
       },
     ];
@@ -141,7 +187,13 @@ const RUTAS = {
   'GET /api/reportes/indicadores': () => ({
     estado: 200,
     datos: {
-      periodo: { id: periodo.id, nombre: periodo.nombre, anio: periodo.anio },
+      periodo: {
+    id: periodo.id,
+    nombre: periodo.nombre,
+    anio: periodo.anio,
+    fechaInicio: periodo.fechaInicio,
+    fechaFin: periodo.fechaFin,
+  },
       planeaciones: {
         total: 9,
         aprobadas: 6,
