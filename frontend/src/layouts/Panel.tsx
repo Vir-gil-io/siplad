@@ -16,6 +16,7 @@ export function Panel() {
   const enlaces = esCoordinador
     ? [
         { a: '/revision', texto: 'Revisión de planeaciones' },
+        { a: '/seguimiento', texto: 'Seguimiento de avances' },
         { a: '/validacion', texto: 'Validación de evidencias' },
         { a: '/reportes', texto: 'Reportes' },
       ]

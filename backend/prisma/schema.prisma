@@ -117,12 +117,20 @@ model Planeacion {
 }
 
 model Avance {
-  id            String       @id @default(uuid())
-  porcentaje    Int
-  estado        EstadoAvance
+  id         String       @id @default(uuid())
+  porcentaje Int
+  estado     EstadoAvance
+
+  /// Tramo que cubre el avance informado. Se captura de forma explicita y no
+  /// se hereda del periodo academico: dentro de un mismo parcial, el docente
+  /// informa sobre el tramo que efectivamente trabajo, y el indicador solo es
+  /// comparable si se sabe a que intervalo corresponde.
+  fechaInicio DateTime
+  fechaFin    DateTime
+
   observaciones String?
-  registradoEn  DateTime     @default(now())
-  actualizadoEn DateTime     @updatedAt
+  registradoEn  DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
   planeacionId String     @unique
   planeacion   Planeacion @relation(fields: [planeacionId], references: [id], onDelete: Cascade)

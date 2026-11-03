@@ -52,6 +52,14 @@ export interface Avance {
   id: string;
   porcentaje: number;
   estado: EstadoAvance;
+  /** Tramo que cubre el avance informado. */
+  fechaInicio: string;
+  fechaFin: string;
+  /**
+   * Dias habiles del tramo, descontando festivos oficiales. Lo calcula el
+   * servidor con la capa de integracion de calendario.
+   */
+  diasHabiles?: number;
   observaciones: string | null;
   registradoEn: string;
   planeacionId: string;
@@ -71,7 +79,7 @@ export interface Planeacion {
   materiaId: string;
   periodoId: string;
   materia: Pick<Materia, 'id' | 'clave' | 'nombre'>;
-  periodo: Pick<PeriodoAcademico, 'id' | 'nombre' | 'anio'>;
+  periodo: Pick<PeriodoAcademico, 'id' | 'nombre' | 'anio' | 'fechaInicio' | 'fechaFin'>;
   usuario: ResumenUsuario;
   revisadoPor: ResumenUsuario | null;
   avance: Avance | null;

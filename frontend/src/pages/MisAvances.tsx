@@ -13,9 +13,11 @@ import { Vacio } from '../components/Vacio';
 import {
   LIMITES,
   enfocarPrimerError,
+  fechaLegible,
   reunirErrores,
   validarEntero,
   validarTexto,
+  validarTramo,
 } from '../utils/validacion';
 import type { Planeacion } from '../types';
 
@@ -66,6 +68,22 @@ export function MisAvances() {
                     {registro.materia.clave} · Parcial{' '}
                     <span className="cifra">{registro.parcial}</span>
                   </p>
+
+                  {registro.avance ? (
+                    <p className="mt-1.5 text-sm text-tinta-suave">
+                      Informado del {fechaLegible(registro.avance.fechaInicio)} al{' '}
+                      {fechaLegible(registro.avance.fechaFin)}
+                      {registro.avance.diasHabiles !== undefined ? (
+                        <>
+                          {' · '}
+                          <span className="cifra">
+                            {registro.avance.diasHabiles}
+                          </span>{' '}
+                          días hábiles
+                        </>
+                      ) : null}
+                    </p>
+                  ) : null}
 
                   {registro.avance?.observaciones ? (
                     <p className="mt-2 text-sm text-tinta-suave">
@@ -122,6 +140,16 @@ function FormularioAvance({
   onCerrar: () => void;
   onGuardado: (planeacionId: string) => void;
 }) {
+  const periodo = planeacion.periodo;
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  // El tramo se propone completo —del inicio del periodo hasta hoy— y el
+  // docente lo acota. Partir de un campo vacio obliga a teclear dos fechas
+  // para el caso mas comun, que es informar sobre todo lo transcurrido.
+  const [fechaInicio, establecerFechaInicio] = useState(periodo.fechaInicio.slice(0, 10));
+  const [fechaFin, establecerFechaFin] = useState(
+    periodo.fechaFin.slice(0, 10) < hoy ? periodo.fechaFin.slice(0, 10) : hoy,
+  );
   const [porcentaje, establecerPorcentaje] = useState('');
   const [observaciones, establecerObservaciones] = useState('');
   const [errores, establecerErrores] = useState<Record<string, string>>({});
@@ -132,7 +160,11 @@ function FormularioAvance({
     evento.preventDefault();
     establecerError(null);
 
+    const tramo = validarTramo(fechaInicio, fechaFin, periodo);
+
     const encontrados = reunirErrores({
+      fechaInicio: tramo.fechaInicio,
+      fechaFin: tramo.fechaFin,
       porcentaje: validarEntero(porcentaje, {
         etiqueta: 'El porcentaje',
         minimo: 0,
@@ -157,6 +189,8 @@ function FormularioAvance({
       await avances.crear({
         planeacionId: planeacion.id,
         porcentaje: Number(porcentaje),
+        fechaInicio,
+        fechaFin,
         observaciones: observaciones.trim() || undefined,
       });
       onGuardado(planeacion.id);
@@ -177,6 +211,55 @@ function FormularioAvance({
           {planeacion.materia.nombre} · Parcial{' '}
           <span className="cifra">{planeacion.parcial}</span>
         </p>
+
+        <fieldset className="recuadro px-3 py-3">
+          <legend className="px-1 text-sm font-medium text-tinta">
+            Tramo que informas
+          </legend>
+          <p className="mb-3 text-xs text-grafito">
+            El avance corresponde a este intervalo. Debe quedar dentro de {periodo.nombre}
+            , del {fechaLegible(periodo.fechaInicio)} al {fechaLegible(periodo.fechaFin)}.
+          </p>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Campo
+              id="fechaInicio"
+              etiqueta="Desde"
+              type="date"
+              min={periodo.fechaInicio.slice(0, 10)}
+              max={hoy}
+              value={fechaInicio}
+              error={errores.fechaInicio}
+              onChange={(e) => {
+                establecerFechaInicio(e.target.value);
+                establecerErrores((p) => {
+                  const { fechaInicio: _, ...r } = p;
+                  return r;
+                });
+              }}
+              requerido
+            />
+            <Campo
+              id="fechaFin"
+              etiqueta="Hasta"
+              type="date"
+              min={fechaInicio || periodo.fechaInicio.slice(0, 10)}
+              max={
+                periodo.fechaFin.slice(0, 10) < hoy ? periodo.fechaFin.slice(0, 10) : hoy
+              }
+              value={fechaFin}
+              error={errores.fechaFin}
+              onChange={(e) => {
+                establecerFechaFin(e.target.value);
+                establecerErrores((p) => {
+                  const { fechaFin: _, ...r } = p;
+                  return r;
+                });
+              }}
+              requerido
+            />
+          </div>
+        </fieldset>
 
         <Campo
           id="porcentaje"

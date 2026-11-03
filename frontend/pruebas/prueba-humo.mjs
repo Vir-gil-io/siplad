@@ -313,9 +313,95 @@ try {
   await pagina.waitForTimeout(300);
   await pagina.screenshot({ path: 'pruebas/captura-planeaciones.png', fullPage: true });
 
+
+  // --- Tramo informado del avance -----------------------------------------
+  // El porcentaje solo es interpretable si se sabe a que intervalo
+  // corresponde: se comprueba que el tramo viaje y se muestre en los dos
+  // lados, y que el formulario lo acote al periodo academico.
+  await pagina.evaluate(() => localStorage.clear());
+  await entrar('docente@utng.edu.mx');
+  await pagina.waitForURL('**/planeaciones', { timeout: 10000 });
+  await pagina.click('nav >> text=Mis avances');
+  await pagina.waitForURL('**/avances', { timeout: 10000 });
+  await pagina.waitForSelector('text=/Informado del/', { timeout: 10000 });
+
+  registrar(
+    'El docente ve el tramo informado de su avance',
+    (await pagina.locator('text=/Informado del .* al /').count()) > 0,
+  );
+
+  registrar(
+    'El tramo viene acompanado de sus dias habiles',
+    (await pagina.locator('text=/dias h|días h/').count()) > 0,
+  );
+
+  await pagina.click('button:has-text("Registrar avance")');
+  await pagina.waitForSelector('[role="dialog"]', { timeout: 10000 });
+
+  const desde = await pagina.inputValue('[role="dialog"] #fechaInicio');
+  registrar(
+    'El formulario propone el tramo desde el inicio del periodo',
+    desde === '2026-08-17',
+    desde,
+  );
+
+  const topeDesde = await pagina.getAttribute('[role="dialog"] #fechaInicio', 'min');
+  registrar(
+    'El campo de inicio queda acotado por el periodo academico',
+    topeDesde === '2026-08-17',
+    topeDesde ?? 'sin atributo',
+  );
+
+  // Un tramo invertido no debe salir del navegador.
+  await pagina.fill('[role="dialog"] #fechaInicio', '2026-09-26');
+  await pagina.fill('[role="dialog"] #fechaFin', '2026-08-17');
+  await pagina.fill('[role="dialog"] #porcentaje', '70');
+  await pagina.click('[role="dialog"] button[type="submit"]');
+  await pagina.waitForTimeout(300);
+  registrar(
+    'Un tramo invertido se detiene antes de enviarse',
+    (await pagina.locator('[role="dialog"] #fechaFin[aria-invalid="true"]').count()) > 0,
+  );
+
+  // Un tramo fuera del periodo tampoco.
+  await pagina.fill('[role="dialog"] #fechaInicio', '2026-08-17');
+  await pagina.fill('[role="dialog"] #fechaFin', '2026-12-31');
+  await pagina.click('[role="dialog"] button[type="submit"]');
+  await pagina.waitForTimeout(300);
+  registrar(
+    'Un tramo que excede el periodo se detiene antes de enviarse',
+    (await pagina.locator('[role="dialog"] #fechaFin[aria-invalid="true"]').count()) > 0,
+  );
+  await pagina.screenshot({ path: 'pruebas/captura-avance-tramo.png' });
+  await pagina.click('[role="dialog"] button[aria-label="Cerrar"]');
+  await pagina.waitForTimeout(300);
+
+  // --- Seguimiento de avances, del lado de coordinacion --------------------
   await pagina.evaluate(() => localStorage.clear());
   await entrar('coordinacion@utng.edu.mx');
   await pagina.waitForURL('**/revision', { timeout: 10000 });
+  await pagina.click('nav >> text=Seguimiento de avances');
+  await pagina.waitForURL('**/seguimiento', { timeout: 10000 });
+  await pagina.waitForSelector('text=/Informado del/', { timeout: 10000 });
+
+  registrar(
+    'Coordinacion ve el registro individual de cada avance',
+    (await pagina.locator('text=/Informado del .* al /').count()) >= 2,
+  );
+
+  registrar(
+    'El seguimiento ofrece filtrar por periodo y por cumplimiento',
+    (await pagina.locator('#filtroPeriodo').count()) > 0 &&
+      (await pagina.locator('#filtroEstado').count()) > 0,
+  );
+
+  await pagina.selectOption('#filtroEstado', 'CUMPLIDO');
+  await pagina.waitForTimeout(300);
+  registrar(
+    'El filtro de cumplimiento reduce el listado',
+    (await pagina.locator('text=/Informado del .* al /').count()) === 1,
+  );
+  await pagina.screenshot({ path: 'pruebas/captura-seguimiento.png', fullPage: true });
 
   await pagina.evaluate(() => localStorage.clear());
   await pagina.goto(`${BASE}/acceso`, { waitUntil: 'networkidle' });

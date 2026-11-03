@@ -56,13 +56,19 @@ function Etiqueta({
   htmlFor,
   children,
   requerido,
+  oculta = false,
 }: {
   htmlFor: string;
   children: ReactNode;
   requerido?: boolean;
+  /** La etiqueta sigue existiendo para los lectores de pantalla, sin ocupar espacio. */
+  oculta?: boolean;
 }) {
   return (
-    <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-medium text-tinta">
+    <label
+      htmlFor={htmlFor}
+      className={oculta ? 'sr-only' : 'mb-1.5 block text-sm font-medium text-tinta'}
+    >
       {children}
       {requerido ? (
         <span className="ml-0.5 text-lapiz" aria-label="obligatorio">
@@ -199,6 +205,7 @@ export function AreaTexto({
 export function Selector({
   id,
   etiqueta,
+  etiquetaOculta = false,
   error,
   requerido,
   children,
@@ -206,13 +213,15 @@ export function Selector({
 }: SelectHTMLAttributes<HTMLSelectElement> & {
   id: string;
   etiqueta: string;
+  /** Para filtros, donde el valor elegido ya dice lo que el control hace. */
+  etiquetaOculta?: boolean;
   error?: string;
   requerido?: boolean;
   children: ReactNode;
 }) {
   return (
     <div>
-      <Etiqueta htmlFor={id} requerido={requerido}>
+      <Etiqueta htmlFor={id} requerido={requerido} oculta={etiquetaOculta}>
         {etiqueta}
       </Etiqueta>
       <select

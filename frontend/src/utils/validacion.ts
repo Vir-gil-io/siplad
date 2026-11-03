@@ -173,6 +173,67 @@ export function validarArchivo(
   return null;
 }
 
+/**
+ * Valida un tramo de fechas contra los limites de un periodo.
+ *
+ * Replica la regla que impone el servidor, que es la que cuenta: el tramo debe
+ * quedar dentro del periodo academico de la planeacion, no puede estar
+ * invertido y no puede comenzar en el futuro.
+ */
+export function validarTramo(
+  inicio: string,
+  fin: string,
+  limites: { fechaInicio: string; fechaFin: string; nombre: string },
+): { fechaInicio: string | null; fechaFin: string | null } {
+  const errores: { fechaInicio: string | null; fechaFin: string | null } = {
+    fechaInicio: null,
+    fechaFin: null,
+  };
+
+  if (!inicio) errores.fechaInicio = 'La fecha de inicio es obligatoria.';
+  if (!fin) errores.fechaFin = 'La fecha de fin es obligatoria.';
+  if (errores.fechaInicio || errores.fechaFin) return errores;
+
+  const desde = inicio.slice(0, 10);
+  const hasta = fin.slice(0, 10);
+  const limiteInferior = limites.fechaInicio.slice(0, 10);
+  const limiteSuperior = limites.fechaFin.slice(0, 10);
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  // Las fechas vienen en formato AAAA-MM-DD, que se ordena bien como texto:
+  // comparar cadenas evita construir objetos Date y con ellos el desfase de
+  // zona horaria que desplazaria el limite un dia.
+  if (hasta < desde) {
+    errores.fechaFin = 'La fecha de fin no puede ser anterior a la de inicio.';
+    return errores;
+  }
+
+  if (desde > hoy) {
+    errores.fechaInicio = 'El tramo no puede comenzar en el futuro.';
+    return errores;
+  }
+
+  if (desde < limiteInferior) {
+    errores.fechaInicio = `El periodo ${limites.nombre} comienza el ${limiteInferior}.`;
+  }
+
+  if (hasta > limiteSuperior) {
+    errores.fechaFin = `El periodo ${limites.nombre} termina el ${limiteSuperior}.`;
+  }
+
+  return errores;
+}
+
+/** Fecha legible en español a partir de una marca ISO. */
+export function fechaLegible(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-MX', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
 /** Tamaño legible, para mostrarlo junto al archivo elegido. */
 export function tamanoLegible(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
