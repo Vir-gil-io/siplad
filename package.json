@@ -1,0 +1,21 @@
+{
+  "name": "siplad",
+  "version": "1.0.0",
+  "description": "SIPLAD - Sistema Institucional de Planeacion y Avance Docente",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "lint": "npm --prefix backend run lint",
+    "lint:fix": "npm --prefix backend run lint:fix",
+    "test": "npm --prefix backend test",
+    "format": "npm --prefix backend run format"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "eslint": "^10.14.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.9.10"
+  }
+}

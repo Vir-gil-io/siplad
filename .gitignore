@@ -48,3 +48,8 @@ Thumbs.db
 # Archivos temporales de carga
 uploads/
 tmp/
+
+# Guias y paquetes de trabajo, no forman parte del proyecto
+siplad-tooling.zip
+siplad-bloque-*.zip
+restaurar-nombres.ps1
