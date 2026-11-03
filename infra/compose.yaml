@@ -65,7 +65,13 @@ services:
       # instalacion local de PostgreSQL.
       - '5433:5432'
     volumes:
-      - postgres_datos:/var/lib/postgresql/data
+      # El montaje va en /var/lib/postgresql y no en .../data, que es donde
+      # suele verse en los ejemplos: a partir de PostgreSQL 18 la imagen
+      # oficial guarda el cluster en un subdirectorio por version mayor
+      # (/var/lib/postgresql/18/docker) y declara el volumen un nivel arriba.
+      # Con el montaje en la ruta antigua el entrypoint se niega a arrancar y
+      # el contenedor queda reiniciandose en bucle.
+      - postgres_datos:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U siplad -d siplad']
       interval: 10s

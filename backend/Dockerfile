@@ -91,4 +91,10 @@ HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
 
 # Las migraciones se aplican con 'migrate deploy', que solo ejecuta las ya
 # generadas y no necesita permiso para crear bases de datos.
+#
+# Por eso el CLI de Prisma viaja en 'dependencies' y no en 'devDependencies':
+# esta etapa instala con --omit=dev, y si el CLI faltara, 'npx' intentaria
+# descargarlo de la red en cada arranque del contenedor. Un contenedor de
+# produccion no debe depender del registro de paquetes para encenderse; si la
+# descarga falla, la cadena se rompe y el contenedor queda reiniciandose.
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
