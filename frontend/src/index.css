@@ -59,7 +59,17 @@ html {
 
 body {
   margin: 0;
+  /* El fondo es el escritorio sobre el que descansan las hojas: un degradado
+     muy tenue, apenas perceptible, que da la sensacion de luz cayendo desde
+     arriba sin convertirse en decoracion. */
   background-color: var(--color-papel);
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-papel) 94%, #ffffff) 0%,
+    var(--color-papel) 38%,
+    color-mix(in srgb, var(--color-papel) 93%, var(--color-tinta)) 100%
+  );
+  background-attachment: fixed;
   color: var(--color-tinta);
   font-family: var(--font-texto);
   font-size: 15px;
@@ -96,6 +106,62 @@ textarea {
 }
 
 }  /* fin de @layer base */
+
+/* --- La hoja -------------------------------------------------------------
+   El acta no es una tarjeta: es una hoja de papel apoyada en el escritorio.
+   De ahi sale su tratamiento, y no de un catalogo de componentes.
+
+   La sombra va en dos capas porque asi se comporta la luz real sobre papel:
+   una linea de contacto estrecha y oscura donde la hoja toca la superficie, y
+   una difusion amplia y suave alrededor. Una sola sombra gris uniforme es lo
+   que delata a una interfaz generica.
+
+   El borde superior claro simula el canto de la hoja recibiendo la luz.
+   ------------------------------------------------------------------------- */
+
+.hoja {
+  background-color: var(--color-panel);
+  border: 1px solid color-mix(in srgb, var(--color-regla-fuerte) 70%, transparent);
+  border-radius: 6px;
+  box-shadow:
+    0 1px 1px rgba(35, 38, 59, 0.06),
+    0 2px 6px -1px rgba(35, 38, 59, 0.07),
+    0 12px 28px -8px rgba(35, 38, 59, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Un bloque citado dentro de la hoja: el texto que coordinacion lee antes de
+   dictaminar, o el documento ya adjunto. Va hundido, no elevado: la sombra
+   interior lo separa de la hoja sin convertirlo en otra tarjeta encima. */
+.recuadro {
+  background-color: var(--color-papel);
+  border: 1px solid color-mix(in srgb, var(--color-regla-fuerte) 55%, transparent);
+  border-radius: 5px;
+  box-shadow: inset 0 1px 3px rgba(35, 38, 59, 0.06);
+}
+
+/* La hoja del dialogo esta sostenida sobre el escritorio, no apoyada en el.
+   La diferencia se ve en la sombra: mas abierta, mas desplazada hacia abajo y
+   sin la linea de contacto, porque no hay contacto que marcar. */
+.hoja-alzada {
+  box-shadow:
+    0 2px 4px -1px rgba(35, 38, 59, 0.08),
+    0 12px 24px -6px rgba(35, 38, 59, 0.14),
+    0 32px 56px -16px rgba(35, 38, 59, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* El encabezado del acta: el bloque institucional, con el degradado que
+   insinua la curvatura del papel cerca del doblez. */
+.hoja-encabezado {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-panel) 92%, var(--color-sello)) 0%,
+    var(--color-panel) 72%
+  );
+  border-bottom: 2px solid var(--color-tinta);
+  border-radius: 5px 5px 0 0;
+}
 
 /* --- El sello ------------------------------------------------------------
    El único movimiento de la aplicación. Al cambiar el estado de un registro,
@@ -154,6 +220,7 @@ textarea {
 
 .renglon:last-child {
   border-bottom: none;
+  border-radius: 0 0 5px 5px;
 }
 
 .renglon-interactivo {
@@ -162,4 +229,15 @@ textarea {
 
 .renglon-interactivo:hover {
   background-color: color-mix(in srgb, var(--color-sello) 4%, transparent);
+}
+
+/* --- Franja de indicadores -----------------------------------------------
+   Las cifras del reporte se apoyan sobre un tono apenas distinto, para que
+   se lean como un bloque y no como un renglon mas del acta. */
+.franja-cifras {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-sello) 3%, var(--color-panel)) 0%,
+    var(--color-panel) 100%
+  );
 }

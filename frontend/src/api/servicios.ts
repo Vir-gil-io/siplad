@@ -53,15 +53,53 @@ export const planeaciones = {
   obtener: (id: string) =>
     cliente.get<Planeacion>(`/planeaciones/${id}`).then((r) => r.data),
 
+  /**
+   * El documento de la planeacion es opcional.
+   *
+   * Sin archivo se envia JSON, que es mas ligero y legible en las bitacoras;
+   * con archivo se envia multipart. El backend admite ambas formas, de modo
+   * que el contrato anterior sigue siendo valido.
+   */
   crear: (datos: {
     parcial: number;
     contenido: string;
     materiaId: string;
     periodoId: string;
-  }) => cliente.post<Planeacion>('/planeaciones', datos).then((r) => r.data),
+    archivo?: File | null;
+  }) => {
+    const { archivo, ...campos } = datos;
 
-  actualizar: (id: string, datos: { contenido?: string }) =>
-    cliente.patch<Planeacion>(`/planeaciones/${id}`, datos).then((r) => r.data),
+    if (!archivo) {
+      return cliente.post<Planeacion>('/planeaciones', campos).then((r) => r.data);
+    }
+
+    const formulario = new FormData();
+    formulario.append('parcial', String(campos.parcial));
+    formulario.append('contenido', campos.contenido);
+    formulario.append('materiaId', campos.materiaId);
+    formulario.append('periodoId', campos.periodoId);
+    formulario.append('archivo', archivo);
+
+    return cliente.post<Planeacion>('/planeaciones', formulario).then((r) => r.data);
+  },
+
+  actualizar: (id: string, datos: { contenido?: string; archivo?: File | null }) => {
+    const { archivo, ...campos } = datos;
+
+    if (!archivo) {
+      return cliente.patch<Planeacion>(`/planeaciones/${id}`, campos).then((r) => r.data);
+    }
+
+    const formulario = new FormData();
+    if (campos.contenido !== undefined) {
+      formulario.append('contenido', campos.contenido);
+    }
+    formulario.append('archivo', archivo);
+
+    return cliente
+      .patch<Planeacion>(`/planeaciones/${id}`, formulario)
+      .then((r) => r.data);
+  },
 
   revisar: (
     id: string,

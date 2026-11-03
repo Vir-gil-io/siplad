@@ -5,11 +5,17 @@ import { mensajeDeError } from '../api/cliente';
 import { useCargaRemota } from '../hooks/useCargaRemota';
 import { Acta, Renglon } from '../components/Acta';
 import { Aviso } from '../components/Aviso';
-import { AreaTexto, Boton } from '../components/Controles';
+import { AreaTexto, Boton, EnlaceArchivo } from '../components/Controles';
 import { Cargando } from '../components/Cargando';
 import { Dialogo } from '../components/Dialogo';
 import { Sello } from '../components/Sello';
 import { Vacio } from '../components/Vacio';
+import {
+  LIMITES,
+  enfocarPrimerError,
+  reunirErrores,
+  validarTexto,
+} from '../utils/validacion';
 import type { EstadoPlaneacion, Planeacion } from '../types';
 
 /**
@@ -87,6 +93,12 @@ export function RevisionPlaneaciones() {
                       ? `${registro.contenido.slice(0, 220)}…`
                       : registro.contenido}
                   </p>
+
+                  {registro.archivoUrl ? (
+                    <div className="mt-2.5">
+                      <EnlaceArchivo url={registro.archivoUrl} />
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
@@ -132,6 +144,7 @@ function FormularioDictamen({
 }) {
   const [estado, establecerEstado] = useState<EstadoPlaneacion>('APROBADA');
   const [comentario, establecerComentario] = useState('');
+  const [errores, establecerErrores] = useState<Record<string, string>>({});
   const [error, establecerError] = useState<string | null>(null);
   const [enviando, establecerEnviando] = useState(false);
 
@@ -140,6 +153,26 @@ function FormularioDictamen({
   const enviar = async (evento: FormEvent) => {
     evento.preventDefault();
     establecerError(null);
+
+    // El comentario solo es obligatorio cuando se solicitan ajustes: aprobar
+    // no requiere justificacion escrita.
+    const encontrados = reunirErrores({
+      comentario: pideAjustes
+        ? validarTexto(comentario, {
+            etiqueta: 'Las observaciones',
+            requerido: true,
+            minimo: LIMITES.comentarioRevision.minimo,
+            maximo: LIMITES.comentarioRevision.maximo,
+          })
+        : null,
+    });
+    establecerErrores(encontrados);
+
+    if (Object.keys(encontrados).length > 0) {
+      enfocarPrimerError(encontrados);
+      return;
+    }
+
     establecerEnviando(true);
 
     try {
@@ -159,7 +192,7 @@ function FormularioDictamen({
       <form onSubmit={(e) => void enviar(e)} className="space-y-4" noValidate>
         {error ? <Aviso>{error}</Aviso> : null}
 
-        <div className="border border-regla bg-papel px-4 py-3">
+        <div className="recuadro px-4 py-3">
           <p className="text-sm font-medium text-tinta">{planeacion.usuario.nombre}</p>
           <p className="mt-0.5 text-sm text-grafito">
             {planeacion.materia.nombre} · Parcial{' '}
@@ -168,6 +201,15 @@ function FormularioDictamen({
           <p className="mt-2.5 max-h-48 overflow-y-auto text-sm leading-relaxed text-tinta-suave">
             {planeacion.contenido}
           </p>
+
+          {planeacion.archivoUrl ? (
+            <div className="mt-3 border-t border-regla pt-3">
+              <EnlaceArchivo
+                url={planeacion.archivoUrl}
+                etiqueta="Abrir el documento antes de dictaminar"
+              />
+            </div>
+          ) : null}
         </div>
 
         <fieldset>
@@ -212,10 +254,17 @@ function FormularioDictamen({
           <AreaTexto
             id="comentario"
             etiqueta="Observaciones"
-            ayuda="Indica con precisión qué debe corregirse. Mínimo 10 caracteres."
+            ayuda="Indica con precisión qué debe corregirse. El docente verá este texto."
+            maximo={LIMITES.comentarioRevision.maximo}
             value={comentario}
-            onChange={(e) => establecerComentario(e.target.value)}
-            required
+            error={errores.comentario}
+            onChange={(e) => {
+              establecerComentario(e.target.value);
+              establecerErrores((p) => {
+                const { comentario: _, ...resto } = p;
+                return resto;
+              });
+            }}
             requerido
           />
         ) : null}

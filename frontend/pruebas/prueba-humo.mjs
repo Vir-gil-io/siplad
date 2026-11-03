@@ -216,6 +216,107 @@ try {
   );
   await pagina.screenshot({ path: 'pruebas/captura-revision.png', fullPage: true });
 
+
+  // --- Adjunto y validaciones ----------------------------------------------
+  // Lo que se comprueba aqui no lo ve el compilador: que el enlace al
+  // documento aparezca de los dos lados, y que el formulario se niegue a
+  // enviar lo que el servidor rechazaria.
+  await pagina.click('nav >> text=Revisión de planeaciones');
+  await pagina.waitForURL('**/revision', { timeout: 10000 });
+  await pagina.waitForSelector('button:has-text("Dictaminar")', { timeout: 10000 });
+
+  registrar(
+    'Coordinación ve el documento que adjuntó el docente',
+    (await pagina
+      .locator('a:has-text("Ver documento adjunto")[href*="planeacion-pl3.pdf"]')
+      .count()) > 0,
+  );
+
+  await pagina.click('button:has-text("Dictaminar")');
+  await pagina.waitForSelector('[role="dialog"]', { timeout: 10000 });
+  registrar(
+    'El enlace al documento también está en el diálogo de dictamen',
+    (await pagina
+      .locator('[role="dialog"] a:has-text("Abrir el documento")')
+      .count()) > 0,
+  );
+
+  // Solicitar ajustes exige un comentario; el DTO pide al menos 10 caracteres.
+  await pagina.locator('[role="dialog"] label:has-text("Solicitar ajustes") input').check();
+  await pagina.waitForSelector('[role="dialog"] #comentario', { timeout: 10000 });
+  await pagina.fill('[role="dialog"] #comentario', 'corto');
+  await pagina.click('[role="dialog"] button[type="submit"]');
+  await pagina.waitForTimeout(300);
+  registrar(
+    'Un comentario demasiado corto no se envía y se avisa en el campo',
+    (await pagina.locator('[role="dialog"] [role="alert"]').count()) > 0 &&
+      (await pagina.locator('[role="dialog"]').count()) > 0,
+    (await pagina.locator('[role="dialog"] [role="alert"]').first().innerText()).trim(),
+  );
+  registrar(
+    'El campo con error queda marcado para lectores de pantalla',
+    (await pagina.locator('[role="dialog"] #comentario[aria-invalid="true"]').count()) > 0,
+  );
+  await pagina.screenshot({ path: 'pruebas/captura-validacion.png' });
+  await pagina.click('[role="dialog"] button[aria-label="Cerrar"]');
+  await pagina.waitForTimeout(300);
+
+  // El alta de planeación, del lado del docente.
+  await pagina.evaluate(() => localStorage.clear());
+  await entrar('docente@utng.edu.mx');
+  await pagina.waitForURL('**/planeaciones', { timeout: 10000 });
+  await pagina.waitForSelector('button:has-text("Registrar planeación")', {
+    timeout: 10000,
+  });
+
+  registrar(
+    'El docente ve su propio documento adjunto',
+    (await pagina.locator('a:has-text("Ver documento adjunto")').count()) > 0,
+  );
+
+  await pagina.click('button:has-text("Registrar planeación")');
+  await pagina.waitForSelector('[role="dialog"]', { timeout: 10000 });
+
+  registrar(
+    'El alta ofrece adjuntar el documento de la planeación',
+    (await pagina.locator('[role="dialog"] input#archivo[type="file"]').count()) > 0,
+  );
+
+  // Enviar en blanco no debe llegar al servidor.
+  await pagina.click('[role="dialog"] button[type="submit"]');
+  await pagina.waitForTimeout(300);
+  registrar(
+    'Un formulario vacío no se envía',
+    (await pagina.locator('[role="dialog"] #contenido[aria-invalid="true"]').count()) > 0,
+  );
+
+  // Una cadena mas larga que el limite del DTO tampoco.
+  await pagina.fill('[role="dialog"] #contenido', 'x'.repeat(5100));
+  await pagina.click('[role="dialog"] button[type="submit"]');
+  await pagina.waitForTimeout(300);
+  const avisoLargo = await pagina
+    .locator('[role="dialog"] #contenido-error')
+    .first()
+    .innerText();
+  registrar(
+    'Una cadena más larga que el límite se detiene antes de salir',
+    avisoLargo.includes('5000'),
+    avisoLargo.trim(),
+  );
+
+  // Y el contador refleja lo escrito.
+  registrar(
+    'El contador de caracteres muestra el límite',
+    (await pagina.locator('[role="dialog"] >> text=/5100 \\/ 5000/').count()) > 0,
+  );
+  await pagina.click('[role="dialog"] button[aria-label="Cerrar"]');
+  await pagina.waitForTimeout(300);
+  await pagina.screenshot({ path: 'pruebas/captura-planeaciones.png', fullPage: true });
+
+  await pagina.evaluate(() => localStorage.clear());
+  await entrar('coordinacion@utng.edu.mx');
+  await pagina.waitForURL('**/revision', { timeout: 10000 });
+
   await pagina.evaluate(() => localStorage.clear());
   await pagina.goto(`${BASE}/acceso`, { waitUntil: 'networkidle' });
   await pagina.screenshot({ path: 'pruebas/captura-acceso.png' });

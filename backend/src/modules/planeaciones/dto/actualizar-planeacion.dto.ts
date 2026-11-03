@@ -5,13 +5,9 @@ export class ActualizarPlaneacionDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  @MinLength(20)
-  @MaxLength(5000)
+  @MinLength(20, {
+    message: 'El contenido debe describir la planeacion con al menos 20 caracteres.',
+  })
+  @MaxLength(5000, { message: 'El contenido no puede exceder 5000 caracteres.' })
   contenido?: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  archivoUrl?: string;
 }

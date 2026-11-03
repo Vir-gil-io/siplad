@@ -71,9 +71,7 @@ describe('CloudinaryService', () => {
     });
 
     it('rechaza la ausencia de archivo', () => {
-      expect(() => servicio.validar(undefined)).toThrow(
-        'Debe adjuntar el archivo de la constancia.',
-      );
+      expect(() => servicio.validar(undefined)).toThrow('Debe adjuntar el archivo.');
     });
   });
 
@@ -107,6 +105,61 @@ describe('CloudinaryService', () => {
       await expect(
         servicio.subir(construirArchivo({ mimetype: 'text/html' })),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  /**
+   * Cada modulo acepta lo que su tramite necesita y nada mas: una constancia
+   * se escanea, asi que admite imagen; una planeacion es un documento, asi que
+   * no. Mezclar ambas listas abriria tipos que ese modulo nunca necesita.
+   */
+  describe('listas por modulo', () => {
+    let servicio: CloudinaryService;
+
+    beforeEach(async () => {
+      servicio = await crearServicio();
+    });
+
+    it('admite DOC y DOCX cuando se valida como planeacion', () => {
+      for (const mimetype of [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ]) {
+        expect(() =>
+          servicio.validar(
+            construirArchivo({ mimetype }),
+            CloudinaryService.TIPOS_PLANEACION,
+          ),
+        ).not.toThrow();
+      }
+    });
+
+    it('rechaza una imagen como planeacion, aunque sirva como constancia', () => {
+      const captura = construirArchivo({ mimetype: 'image/png' });
+
+      expect(() => servicio.validar(captura)).not.toThrow();
+      expect(() => servicio.validar(captura, CloudinaryService.TIPOS_PLANEACION)).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('rechaza un DOCX como constancia, aunque sirva como planeacion', () => {
+      const documento = construirArchivo({
+        mimetype:
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      });
+
+      expect(() => servicio.validar(documento)).toThrow(BadRequestException);
+    });
+
+    it('nombra los formatos admitidos en el mensaje de error', () => {
+      expect(() =>
+        servicio.validar(
+          construirArchivo({ mimetype: 'image/gif' }),
+          CloudinaryService.TIPOS_PLANEACION,
+        ),
+      ).toThrow(/PDF, DOC, DOCX/);
     });
   });
 });

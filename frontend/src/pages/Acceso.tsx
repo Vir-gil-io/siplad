@@ -7,6 +7,12 @@ import { mensajeDeError } from '../api/cliente';
 import { Aviso } from '../components/Aviso';
 import { Boton, Campo } from '../components/Controles';
 import { Cargando } from '../components/Cargando';
+import {
+  enfocarPrimerError,
+  reunirErrores,
+  validarCorreo,
+  validarTexto,
+} from '../utils/validacion';
 
 /**
  * Acceso al sistema.
@@ -28,6 +34,7 @@ export function Acceso() {
       ? 'Tu sesión terminó por inactividad. Vuelve a entrar.'
       : null,
   );
+  const [errores, establecerErrores] = useState<Record<string, string>>({});
   const [enviando, establecerEnviando] = useState(false);
 
   if (cargando) {
@@ -41,6 +48,25 @@ export function Acceso() {
   const enviar = async (evento: FormEvent) => {
     evento.preventDefault();
     establecerError(null);
+
+    // En el acceso solo se comprueba que los campos vengan completos y que el
+    // correo tenga forma de correo. Imponer aqui una longitud minima de
+    // contrasena no protege nada y si deja fuera a quien tiene una mas corta,
+    // ademas de anunciar la politica a quien prueba credenciales.
+    const encontrados = reunirErrores({
+      email: validarCorreo(email),
+      password: validarTexto(password, {
+        etiqueta: 'La contraseña',
+        requerido: true,
+      }),
+    });
+    establecerErrores(encontrados);
+
+    if (Object.keys(encontrados).length > 0) {
+      enfocarPrimerError(encontrados);
+      return;
+    }
+
     establecerEnviando(true);
 
     try {
@@ -61,9 +87,9 @@ export function Acceso() {
   return (
     <div className="flex min-h-dvh items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
-        <div className="border border-regla-fuerte bg-panel">
+        <div className="hoja">
           {/* Bloque institucional, como la cabecera de un acta. */}
-          <div className="border-b-2 border-tinta px-6 pt-6 pb-5">
+          <div className="hoja-encabezado border-b-2 border-tinta px-6 pt-6 pb-5">
             <p className="font-titulo text-3xl font-bold tracking-tight text-tinta">
               SIPLAD
             </p>
@@ -93,8 +119,14 @@ export function Acceso() {
               autoComplete="username"
               placeholder="nombre@utng.edu.mx"
               value={email}
-              onChange={(e) => establecerEmail(e.target.value)}
-              required
+              error={errores.email}
+              onChange={(e) => {
+                establecerEmail(e.target.value);
+                establecerErrores((p) => {
+                  const { email: _, ...r } = p;
+                  return r;
+                });
+              }}
               requerido
             />
 
@@ -104,8 +136,14 @@ export function Acceso() {
               type="password"
               autoComplete="current-password"
               value={password}
-              onChange={(e) => establecerPassword(e.target.value)}
-              required
+              error={errores.password}
+              onChange={(e) => {
+                establecerPassword(e.target.value);
+                establecerErrores((p) => {
+                  const { password: _, ...r } = p;
+                  return r;
+                });
+              }}
               requerido
             />
 
@@ -123,7 +161,7 @@ export function Acceso() {
                 es una navegación real y no una petición con axios. */}
             <a
               href={autenticacion.urlGoogle()}
-              className="block rounded-[3px] border border-regla-fuerte bg-panel px-3.5 py-2 text-center text-sm font-medium text-tinta transition-colors hover:border-sello hover:text-sello"
+              className="block rounded-md border border-regla-fuerte bg-panel px-3.5 py-2 text-center text-sm font-medium text-tinta shadow-[0_1px_1px_rgba(35,38,59,.06)] transition-all duration-100 hover:border-sello hover:text-sello active:translate-y-px"
             >
               Entrar con mi cuenta de Google
             </a>

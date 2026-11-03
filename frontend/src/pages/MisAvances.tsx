@@ -10,6 +10,13 @@ import { Cargando } from '../components/Cargando';
 import { Dialogo } from '../components/Dialogo';
 import { Sello } from '../components/Sello';
 import { Vacio } from '../components/Vacio';
+import {
+  LIMITES,
+  enfocarPrimerError,
+  reunirErrores,
+  validarEntero,
+  validarTexto,
+} from '../utils/validacion';
 import type { Planeacion } from '../types';
 
 /**
@@ -117,12 +124,33 @@ function FormularioAvance({
 }) {
   const [porcentaje, establecerPorcentaje] = useState('');
   const [observaciones, establecerObservaciones] = useState('');
+  const [errores, establecerErrores] = useState<Record<string, string>>({});
   const [error, establecerError] = useState<string | null>(null);
   const [enviando, establecerEnviando] = useState(false);
 
   const enviar = async (evento: FormEvent) => {
     evento.preventDefault();
     establecerError(null);
+
+    const encontrados = reunirErrores({
+      porcentaje: validarEntero(porcentaje, {
+        etiqueta: 'El porcentaje',
+        minimo: 0,
+        maximo: 100,
+        requerido: true,
+      }),
+      observaciones: validarTexto(observaciones, {
+        etiqueta: 'Las observaciones',
+        maximo: LIMITES.observacionesAvance.maximo,
+      }),
+    });
+    establecerErrores(encontrados);
+
+    if (Object.keys(encontrados).length > 0) {
+      enfocarPrimerError(encontrados);
+      return;
+    }
+
     establecerEnviando(true);
 
     try {
@@ -154,13 +182,20 @@ function FormularioAvance({
           id="porcentaje"
           etiqueta="Porcentaje logrado"
           type="number"
+          inputMode="numeric"
           min={0}
           max={100}
           step={1}
           ayuda="A partir de 85% se clasifica como cumplido; de 60 a 84% como parcial; por debajo de 60% como no cumplido."
           value={porcentaje}
-          onChange={(e) => establecerPorcentaje(e.target.value)}
-          required
+          error={errores.porcentaje}
+          onChange={(e) => {
+            establecerPorcentaje(e.target.value);
+            establecerErrores((p) => {
+              const { porcentaje: _, ...r } = p;
+              return r;
+            });
+          }}
           requerido
         />
 
@@ -168,8 +203,16 @@ function FormularioAvance({
           id="observaciones"
           etiqueta="Observaciones"
           ayuda="Opcional. Explica cualquier circunstancia que afectó el avance."
+          maximo={LIMITES.observacionesAvance.maximo}
           value={observaciones}
-          onChange={(e) => establecerObservaciones(e.target.value)}
+          error={errores.observaciones}
+          onChange={(e) => {
+            establecerObservaciones(e.target.value);
+            establecerErrores((p) => {
+              const { observaciones: _, ...r } = p;
+              return r;
+            });
+          }}
         />
 
         <div className="flex justify-end gap-2 border-t border-regla pt-4">

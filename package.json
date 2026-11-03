@@ -10,7 +10,8 @@
     "format": "npm --prefix backend run format && npm --prefix frontend run format",
     "build": "npm --prefix backend run build && npm --prefix frontend run build",
     "test": "npm --prefix backend test",
-    "test:e2e": "npm --prefix backend run test:e2e"
+    "test:e2e": "npm --prefix backend run test:e2e",
+    "test:humo": "npm --prefix frontend run test:humo"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
