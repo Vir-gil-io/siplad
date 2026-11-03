@@ -1,0 +1,123 @@
+# ---------------------------------------------------------------------------
+# SIPLAD — Infraestructura como codigo (Render Blueprint)
+#
+# Declara los tres servicios de la nube en un solo archivo versionado, de modo
+# que el entorno se puede recrear desde cero sin reproducir pasos a mano.
+#
+# Despliegue:
+#   Render -> New -> Blueprint -> selecciona el repositorio
+#
+# Despues del primer despliegue hay que completar en el panel las variables
+# marcadas con 'sync: false', porque dependen de las direcciones que Render
+# asigna al crear los servicios.
+# ---------------------------------------------------------------------------
+
+databases:
+  # --- Servidor de base de datos -------------------------------------------
+  - name: siplad-db
+    databaseName: siplad
+    user: siplad
+    plan: free
+    postgresMajorVersion: '16'
+    # Lista vacia: la base solo acepta conexiones desde la red interna de
+    # Render. Para sembrar datos desde fuera hay que agregar la direccion IP
+    # de forma temporal.
+    ipAllowList: []
+
+services:
+  # --- Servidor de aplicaciones --------------------------------------------
+  - type: web
+    name: siplad-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+
+    # Render consulta esta ruta para saber si la instancia esta lista. Es el
+    # mismo endpoint que usa el balanceador en el entorno de contenedores.
+    healthCheckPath: /api/salud
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # La cadena de conexion la inyecta Render desde la base declarada
+      # arriba: nunca se escribe a mano ni queda en el repositorio.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: siplad-db
+          property: connectionString
+
+      # Render genera un valor aleatorio en el primer despliegue.
+      - key: JWT_SECRET
+        generateValue: true
+
+      - key: JWT_EXPIRACION
+        value: 8h
+
+      - key: NAGER_DATE_URL
+        value: https://date.nager.at/api/v3
+
+      - key: NAGER_DATE_PAIS
+        value: MX
+
+      # Estas dependen de la direccion que Render asigne al sitio estatico,
+      # asi que se completan en el panel despues del primer despliegue.
+      - key: CORS_ORIGENES
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+
+      # Credenciales de las integraciones: se capturan en el panel para que
+      # no queden versionadas.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  # --- Interfaz -------------------------------------------------------------
+  - type: web
+    name: siplad-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+
+    envVars:
+      # Direccion de la API, incrustada en el paquete al compilar. Se completa
+      # en el panel con la direccion que Render asigne a siplad-api, mas /api.
+      - key: VITE_API_URL
+        sync: false
+
+      # La construccion instala las dependencias de desarrollo porque necesita
+      # Vite. Playwright viene entre ellas para la prueba de humo y descargaria
+      # navegadores que aqui no se usan.
+      - key: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
+        value: '1'
+
+    routes:
+      # Enrutado del lado del cliente: cualquier ruta que no sea un archivo
+      # real devuelve index.html para que React Router la resuelva.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
