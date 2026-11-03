@@ -37,7 +37,9 @@ const planeacion = (id, estado, parcial, avance) => ({
   parcial,
   contenido:
     'Objetivos de aprendizaje, secuencia didactica, recursos e instrumentos de evaluacion del parcial.',
-  archivoUrl: null,
+  // 'pl3' llega con documento adjunto: es la que coordinacion tiene pendiente
+  // de dictaminar, asi que la prueba comprueba el enlace en los dos lados.
+  archivoUrl: id === 'pl3' ? 'https://ejemplo.test/planeacion-pl3.pdf' : null,
   estado,
   comentarioRevision:
     estado === 'AJUSTES_SOLICITADOS'

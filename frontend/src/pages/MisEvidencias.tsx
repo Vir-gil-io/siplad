@@ -5,11 +5,21 @@ import { mensajeDeError } from '../api/cliente';
 import { useCargaRemota } from '../hooks/useCargaRemota';
 import { Acta, Renglon } from '../components/Acta';
 import { Aviso } from '../components/Aviso';
-import { Boton, Campo } from '../components/Controles';
+import { Boton, Campo, CampoArchivo, EnlaceArchivo } from '../components/Controles';
 import { Cargando } from '../components/Cargando';
 import { Dialogo } from '../components/Dialogo';
 import { Sello } from '../components/Sello';
 import { Vacio } from '../components/Vacio';
+import {
+  ARCHIVO,
+  LIMITES,
+  enfocarPrimerError,
+  reunirErrores,
+  validarArchivo,
+  validarEntero,
+  validarFecha,
+  validarTexto,
+} from '../utils/validacion';
 import type { Evidencia, PeriodoAcademico } from '../types';
 
 interface DatosPantalla {
@@ -96,14 +106,9 @@ export function MisEvidencias() {
                     </p>
                   ) : null}
 
-                  <a
-                    href={registro.archivoUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-block text-sm font-medium text-sello hover:underline"
-                  >
-                    Ver constancia
-                  </a>
+                  <div className="mt-2.5">
+                    <EnlaceArchivo url={registro.archivoUrl} etiqueta="Ver constancia" />
+                  </div>
                 </div>
 
                 <Sello estado={registro.estado} />
@@ -141,23 +146,56 @@ function FormularioEvidencia({
   const [fecha, establecerFecha] = useState('');
   const [horas, establecerHoras] = useState('');
   const [archivo, establecerArchivo] = useState<File | null>(null);
+
+  const [errores, establecerErrores] = useState<Record<string, string>>({});
   const [error, establecerError] = useState<string | null>(null);
   const [enviando, establecerEnviando] = useState(false);
+
+  /** Las reglas replican una a una las del DTO del backend. */
+  const validar = () =>
+    reunirErrores({
+      nombreCurso: validarTexto(nombreCurso, {
+        etiqueta: 'El nombre del curso',
+        requerido: true,
+        minimo: LIMITES.nombreCurso.minimo,
+        maximo: LIMITES.nombreCurso.maximo,
+      }),
+      institucion: validarTexto(institucion, {
+        etiqueta: 'La institución',
+        requerido: true,
+        minimo: LIMITES.institucion.minimo,
+        maximo: LIMITES.institucion.maximo,
+      }),
+      fecha: validarFecha(fecha, 'La fecha de conclusión'),
+      horas: validarEntero(horas, {
+        etiqueta: 'Las horas',
+        minimo: 1,
+        maximo: 500,
+        requerido: true,
+      }),
+      archivo: validarArchivo(archivo, ARCHIVO.constancia, true),
+    });
 
   const enviar = async (evento: FormEvent) => {
     evento.preventDefault();
     establecerError(null);
 
-    if (!archivo) {
-      establecerError('Adjunta el archivo de la constancia en PDF, JPG o PNG.');
+    const encontrados = validar();
+    establecerErrores(encontrados);
+
+    if (Object.keys(encontrados).length > 0) {
+      enfocarPrimerError(encontrados);
       return;
     }
+
+    // El archivo ya quedó comprobado arriba; la condición es para el tipado.
+    if (!archivo) return;
 
     establecerEnviando(true);
     try {
       await evidencias.crear({
-        nombreCurso,
-        institucion,
+        nombreCurso: nombreCurso.trim(),
+        institucion: institucion.trim(),
         fecha,
         horas: Number(horas),
         periodoId: periodo.id,
@@ -172,6 +210,13 @@ function FormularioEvidencia({
     }
   };
 
+  const limpiar = (campo: string) =>
+    establecerErrores((previos) => {
+      if (!previos[campo]) return previos;
+      const { [campo]: _, ...resto } = previos;
+      return resto;
+    });
+
   return (
     <Dialogo titulo="Cargar constancia" onCerrar={onCerrar}>
       <form onSubmit={(e) => void enviar(e)} className="space-y-4" noValidate>
@@ -180,18 +225,27 @@ function FormularioEvidencia({
         <Campo
           id="nombreCurso"
           etiqueta="Nombre del curso"
+          ayuda="Tal como aparece en la constancia."
+          maxLength={LIMITES.nombreCurso.maximo}
           value={nombreCurso}
-          onChange={(e) => establecerNombreCurso(e.target.value)}
-          required
+          error={errores.nombreCurso}
+          onChange={(e) => {
+            establecerNombreCurso(e.target.value);
+            limpiar('nombreCurso');
+          }}
           requerido
         />
 
         <Campo
           id="institucion"
           etiqueta="Institución emisora"
+          maxLength={LIMITES.institucion.maximo}
           value={institucion}
-          onChange={(e) => establecerInstitucion(e.target.value)}
-          required
+          error={errores.institucion}
+          onChange={(e) => {
+            establecerInstitucion(e.target.value);
+            limpiar('institucion');
+          }}
           requerido
         />
 
@@ -200,42 +254,46 @@ function FormularioEvidencia({
             id="fecha"
             etiqueta="Fecha de conclusión"
             type="date"
+            max={new Date().toISOString().slice(0, 10)}
             value={fecha}
-            onChange={(e) => establecerFecha(e.target.value)}
-            required
+            error={errores.fecha}
+            onChange={(e) => {
+              establecerFecha(e.target.value);
+              limpiar('fecha');
+            }}
             requerido
           />
           <Campo
             id="horas"
             etiqueta="Horas acreditadas"
             type="number"
+            inputMode="numeric"
             min={1}
             max={500}
+            step={1}
             value={horas}
-            onChange={(e) => establecerHoras(e.target.value)}
-            required
+            error={errores.horas}
+            onChange={(e) => {
+              establecerHoras(e.target.value);
+              limpiar('horas');
+            }}
             requerido
           />
         </div>
 
-        <div>
-          <label
-            htmlFor="archivo"
-            className="mb-1.5 block text-sm font-medium text-tinta"
-          >
-            Archivo de la constancia
-            <span className="ml-0.5 text-lapiz">*</span>
-          </label>
-          <input
-            id="archivo"
-            type="file"
-            accept="application/pdf,image/jpeg,image/png"
-            onChange={(e) => establecerArchivo(e.target.files?.[0] ?? null)}
-            className="w-full rounded-[3px] border border-regla-fuerte bg-panel px-3 py-2 text-sm file:mr-3 file:rounded-[3px] file:border-0 file:bg-sello-claro file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-sello"
-            required
-          />
-          <p className="mt-1 text-xs text-grafito">PDF, JPG o PNG. Máximo 5 MB.</p>
-        </div>
+        <CampoArchivo
+          id="archivo"
+          etiqueta="Archivo de la constancia"
+          ayuda={`${ARCHIVO.constancia.descripcion}. Máximo 5 MB.`}
+          accept={ARCHIVO.constancia.accept}
+          archivo={archivo}
+          error={errores.archivo}
+          onArchivo={(elegido) => {
+            establecerArchivo(elegido);
+            limpiar('archivo');
+          }}
+          requerido
+        />
 
         <div className="flex justify-end gap-2 border-t border-regla pt-4">
           <Boton type="button" variante="contorno" onClick={onCerrar}>

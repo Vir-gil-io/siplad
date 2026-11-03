@@ -28,13 +28,26 @@ export class CloudinaryService {
   private readonly habilitado: boolean;
   private readonly directorioLocal = join(process.cwd(), 'uploads');
 
-  /** OWASP A04 — Lista blanca de tipos y limite de tamano. */
-  private static readonly TIPOS_PERMITIDOS = [
+  /**
+   * OWASP A04 — Listas blancas de tipos y limite de tamano.
+   *
+   * Cada modulo declara que admite: una constancia de capacitacion es un
+   * documento escaneado, mientras que una planeacion didactica suele venir
+   * como documento de texto. Ampliar una lista no debe ampliar la otra.
+   */
+  static readonly TIPOS_CONSTANCIA = [
     'application/pdf',
     'image/jpeg',
     'image/jpg',
     'image/png',
   ];
+
+  static readonly TIPOS_PLANEACION = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ];
+
   private static readonly TAMANO_MAXIMO = 5 * 1024 * 1024; // 5 MB
 
   constructor(private readonly config: ConfigService) {
@@ -62,14 +75,24 @@ export class CloudinaryService {
   /**
    * OWASP A04 — La validacion ocurre antes de enviar el archivo a cualquier
    * destino, no despues.
+   *
+   * La lista se recibe como argumento en lugar de leerse de una constante
+   * unica, para que cada modulo imponga la suya. El valor por omision es el de
+   * las constancias porque fue el primer modulo en usar esta capa; quien
+   * necesite otra lista la declara al llamar.
    */
-  validar(archivo: Express.Multer.File): void {
+  validar(
+    archivo: Express.Multer.File | undefined,
+    tiposPermitidos: readonly string[] = CloudinaryService.TIPOS_CONSTANCIA,
+  ): void {
     if (!archivo) {
-      throw new BadRequestException('Debe adjuntar el archivo de la constancia.');
+      throw new BadRequestException('Debe adjuntar el archivo.');
     }
 
-    if (!CloudinaryService.TIPOS_PERMITIDOS.includes(archivo.mimetype)) {
-      throw new BadRequestException('Solo se admiten archivos PDF, JPG o PNG.');
+    if (!tiposPermitidos.includes(archivo.mimetype)) {
+      throw new BadRequestException(
+        `Solo se admiten archivos ${CloudinaryService.describir(tiposPermitidos)}.`,
+      );
     }
 
     if (archivo.size > CloudinaryService.TAMANO_MAXIMO) {
@@ -82,8 +105,9 @@ export class CloudinaryService {
   async subir(
     archivo: Express.Multer.File,
     carpeta = 'siplad/evidencias',
+    tiposPermitidos: readonly string[] = CloudinaryService.TIPOS_CONSTANCIA,
   ): Promise<ArchivoSubido> {
-    this.validar(archivo);
+    this.validar(archivo, tiposPermitidos);
 
     if (!this.habilitado) {
       return this.guardarEnDiscoLocal(archivo);
@@ -156,7 +180,22 @@ export class CloudinaryService {
       'image/jpeg': '.jpg',
       'image/jpg': '.jpg',
       'image/png': '.png',
+      'application/msword': '.doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
     };
     return mapa[tipo] ?? '.bin';
+  }
+
+  /** Traduce los tipos MIME a algo que el usuario reconozca en el mensaje. */
+  private static describir(tipos: readonly string[]): string {
+    const nombres: Record<string, string> = {
+      'application/pdf': 'PDF',
+      'image/jpeg': 'JPG',
+      'image/jpg': 'JPG',
+      'image/png': 'PNG',
+      'application/msword': 'DOC',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
+    };
+    return [...new Set(tipos.map((t) => nombres[t] ?? t))].join(', ');
   }
 }

@@ -8,6 +8,7 @@ import { EstadoPlaneacion, Rol } from '@prisma/client';
 
 import { PlaneacionesService } from './planeaciones.service';
 import { PlaneacionesRepository } from './planeaciones.repository';
+import { CloudinaryService } from '../../integrations/cloudinary/cloudinary.service';
 import { UsuarioAutenticado } from '../../common/decorators/usuario-actual.decorator';
 
 /**
@@ -26,6 +27,15 @@ describe('PlaneacionesService', () => {
     actualizar: jest.Mock;
     eliminar: jest.Mock;
   };
+  let almacenamiento: { subir: jest.Mock };
+
+  /** Doble del adjunto que llega del interceptor de Multer. */
+  const archivoPdf = {
+    originalname: 'planeacion.pdf',
+    mimetype: 'application/pdf',
+    size: 240 * 1024,
+    buffer: Buffer.from('%PDF-1.7'),
+  } as Express.Multer.File;
 
   const docente: UsuarioAutenticado = {
     id: 'doc-1',
@@ -74,10 +84,21 @@ describe('PlaneacionesService', () => {
       eliminar: jest.fn(() => Promise.resolve(undefined)),
     };
 
+    almacenamiento = {
+      subir: jest.fn(() =>
+        Promise.resolve({
+          url: 'https://res.cloudinary.com/demo/siplad/planeaciones/plan.pdf',
+          proveedor: 'cloudinary',
+          identificador: 'siplad/planeaciones/plan',
+        }),
+      ),
+    };
+
     const modulo: TestingModule = await Test.createTestingModule({
       providers: [
         PlaneacionesService,
         { provide: PlaneacionesRepository, useValue: repositorio },
+        { provide: CloudinaryService, useValue: almacenamiento },
       ],
     }).compile();
 
@@ -102,6 +123,39 @@ describe('PlaneacionesService', () => {
         BadRequestException,
       );
       expect(repositorio.crear).not.toHaveBeenCalled();
+    });
+
+    it('registra la planeacion sin adjunto cuando no se envia archivo', async () => {
+      repositorio.buscarDuplicada.mockResolvedValue(null);
+
+      await servicio.crear(datosAlta, docente);
+
+      expect(almacenamiento.subir).not.toHaveBeenCalled();
+      expect(repositorio.crear.mock.calls[0][0].archivoUrl).toBeNull();
+    });
+
+    it('guarda el adjunto en la carpeta de planeaciones y conserva su direccion', async () => {
+      repositorio.buscarDuplicada.mockResolvedValue(null);
+
+      await servicio.crear(datosAlta, docente, archivoPdf);
+
+      expect(almacenamiento.subir).toHaveBeenCalledWith(
+        archivoPdf,
+        'siplad/planeaciones',
+        CloudinaryService.TIPOS_PLANEACION,
+      );
+      expect(repositorio.crear.mock.calls[0][0].archivoUrl).toBe(
+        'https://res.cloudinary.com/demo/siplad/planeaciones/plan.pdf',
+      );
+    });
+
+    it('no sube nada si la planeacion esta duplicada', async () => {
+      repositorio.buscarDuplicada.mockResolvedValue(planeacionDelDocente);
+
+      await expect(servicio.crear(datosAlta, docente, archivoPdf)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(almacenamiento.subir).not.toHaveBeenCalled();
     });
   });
 

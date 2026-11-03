@@ -6,6 +6,10 @@ import type { ReactNode } from 'react';
    Estructura tomada del acta académica: un bloque de encabezado con los datos
    del periodo, y debajo los renglones reglados. La regla separa registros, de
    modo que la línea es información y no adorno.
+
+   El tratamiento de hoja —relieve, canto iluminado, esquina suave— vive en la
+   clase `.hoja` de la hoja de estilos, para que el componente describa la
+   estructura y no el acabado.
    --------------------------------------------------------------------------- */
 
 export function Acta({
@@ -20,8 +24,8 @@ export function Acta({
   children: ReactNode;
 }) {
   return (
-    <section className="border border-regla-fuerte bg-panel">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b-2 border-tinta px-4 py-3 sm:px-5">
+    <section className="hoja">
+      <header className="hoja-encabezado flex flex-wrap items-end justify-between gap-3 px-4 py-3 sm:px-5">
         <div>
           <h2 className="font-titulo text-lg font-semibold text-tinta sm:text-xl">
             {titulo}

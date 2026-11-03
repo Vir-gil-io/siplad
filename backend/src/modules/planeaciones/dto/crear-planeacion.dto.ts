@@ -1,14 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsInt,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Max,
-  MaxLength,
-  Min,
-  MinLength,
-} from 'class-validator';
+import { IsInt, IsString, IsUUID, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CrearPlaneacionDto {
   @ApiProperty({ example: 1, minimum: 1, maximum: 3 })
@@ -24,7 +15,7 @@ export class CrearPlaneacionDto {
   @MinLength(20, {
     message: 'El contenido debe describir la planeacion con al menos 20 caracteres.',
   })
-  @MaxLength(5000)
+  @MaxLength(5000, { message: 'El contenido no puede exceder 5000 caracteres.' })
   contenido: string;
 
   @ApiProperty()
@@ -35,9 +26,8 @@ export class CrearPlaneacionDto {
   @IsUUID('4', { message: 'El periodo academico indicado no es valido.' })
   periodoId: string;
 
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  archivoUrl?: string;
+  // La direccion del archivo no se acepta desde el cliente de forma
+  // deliberada: llega como adjunto y la produce la capa de integracion. Si se
+  // admitiera como texto, un cliente podria apuntar el registro a cualquier
+  // direccion externa.
 }

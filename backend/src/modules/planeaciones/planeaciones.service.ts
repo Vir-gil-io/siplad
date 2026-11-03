@@ -7,6 +7,7 @@ import {
 import { EstadoPlaneacion, Prisma, Rol } from '@prisma/client';
 
 import { PlaneacionesRepository } from './planeaciones.repository';
+import { CloudinaryService } from '../../integrations/cloudinary/cloudinary.service';
 import { CrearPlaneacionDto } from './dto/crear-planeacion.dto';
 import { ActualizarPlaneacionDto } from './dto/actualizar-planeacion.dto';
 import { RevisarPlaneacionDto } from './dto/revisar-planeacion.dto';
@@ -22,9 +23,22 @@ import { UsuarioAutenticado } from '../../common/decorators/usuario-actual.decor
  */
 @Injectable()
 export class PlaneacionesService {
-  constructor(private readonly repositorio: PlaneacionesRepository) {}
+  constructor(
+    private readonly repositorio: PlaneacionesRepository,
+    private readonly almacenamiento: CloudinaryService,
+  ) {}
 
-  async crear(dto: CrearPlaneacionDto, usuario: UsuarioAutenticado) {
+  /**
+   * El archivo es opcional: una planeacion breve puede escribirse en el
+   * campo de texto, y una extensa adjuntarse como documento. Cuando viene
+   * adjunto, el envio al proveedor se delega por completo en la capa de
+   * integracion, que valida tipo y tamano antes de mover un solo byte.
+   */
+  async crear(
+    dto: CrearPlaneacionDto,
+    usuario: UsuarioAutenticado,
+    archivo?: Express.Multer.File,
+  ) {
     const duplicada = await this.repositorio.buscarDuplicada({
       usuarioId: usuario.id,
       materiaId: dto.materiaId,
@@ -38,15 +52,27 @@ export class PlaneacionesService {
       );
     }
 
+    const archivoUrl = archivo ? await this.guardarArchivo(archivo) : null;
+
     return this.repositorio.crear({
       parcial: dto.parcial,
       contenido: dto.contenido,
-      archivoUrl: dto.archivoUrl,
+      archivoUrl,
       usuarioId: usuario.id,
       materiaId: dto.materiaId,
       periodoId: dto.periodoId,
       estado: EstadoPlaneacion.ENVIADA,
     });
+  }
+
+  /** Envia el documento de planeacion al almacenamiento configurado. */
+  private async guardarArchivo(archivo: Express.Multer.File): Promise<string> {
+    const subido = await this.almacenamiento.subir(
+      archivo,
+      'siplad/planeaciones',
+      CloudinaryService.TIPOS_PLANEACION,
+    );
+    return subido.url;
   }
 
   /**
@@ -90,6 +116,7 @@ export class PlaneacionesService {
     id: string,
     dto: ActualizarPlaneacionDto,
     usuario: UsuarioAutenticado,
+    archivo?: Express.Multer.File,
   ) {
     const planeacion = await this.obtenerPorId(id, usuario);
 
@@ -101,9 +128,15 @@ export class PlaneacionesService {
       throw new BadRequestException('Una planeacion aprobada no puede modificarse.');
     }
 
+    // Si se adjunta un documento nuevo, sustituye al anterior. El archivo
+    // viejo permanece en el proveedor: conservarlo deja rastro de lo que el
+    // docente entrego en cada version.
+    const archivoUrl = archivo ? await this.guardarArchivo(archivo) : undefined;
+
     // Al corregir una planeacion con ajustes solicitados, vuelve a revision.
     return this.repositorio.actualizar(id, {
       ...dto,
+      ...(archivoUrl !== undefined && { archivoUrl }),
       estado: EstadoPlaneacion.ENVIADA,
       comentarioRevision: null,
       revisadoEn: null,

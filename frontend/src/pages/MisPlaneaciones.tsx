@@ -5,11 +5,25 @@ import { mensajeDeError } from '../api/cliente';
 import { useCargaRemota } from '../hooks/useCargaRemota';
 import { Acta, Renglon } from '../components/Acta';
 import { Aviso } from '../components/Aviso';
-import { Boton, AreaTexto, Selector } from '../components/Controles';
+import {
+  AreaTexto,
+  Boton,
+  CampoArchivo,
+  EnlaceArchivo,
+  Selector,
+} from '../components/Controles';
 import { Cargando } from '../components/Cargando';
 import { Dialogo } from '../components/Dialogo';
 import { Sello } from '../components/Sello';
 import { Vacio } from '../components/Vacio';
+import {
+  ARCHIVO,
+  LIMITES,
+  enfocarPrimerError,
+  reunirErrores,
+  validarArchivo,
+  validarTexto,
+} from '../utils/validacion';
 import type { Materia, PeriodoAcademico, Planeacion } from '../types';
 
 interface DatosPantalla {
@@ -62,7 +76,7 @@ export function MisPlaneaciones() {
         {lista.length === 0 ? (
           <Vacio
             titulo="Aún no registras ninguna planeación"
-            descripcion="Registra la planeación de cada materia y parcial del periodo. Coordinación la revisa y te avisa si requiere ajustes."
+            descripcion="Registra la planeación de cada materia y parcial del periodo. Puedes escribirla aquí o adjuntar el documento. Coordinación la revisa y te avisa si requiere ajustes."
             accion={
               <Boton
                 onClick={() => establecerEnFormulario(null)}
@@ -87,9 +101,15 @@ export function MisPlaneaciones() {
                   </p>
 
                   {registro.comentarioRevision ? (
-                    <p className="mt-2 border-l-[3px] border-lapiz bg-lapiz-claro px-3 py-2 text-sm text-lapiz">
+                    <p className="mt-2 rounded border-l-[3px] border-lapiz bg-lapiz-claro px-3 py-2 text-sm text-lapiz">
                       {registro.comentarioRevision}
                     </p>
+                  ) : null}
+
+                  {registro.archivoUrl ? (
+                    <div className="mt-2.5">
+                      <EnlaceArchivo url={registro.archivoUrl} />
+                    </div>
                   ) : null}
                 </div>
 
@@ -141,31 +161,62 @@ function FormularioPlaneacion({
 }) {
   const esEdicion = planeacion !== null;
 
-  // El estado inicial se deriva de las props una sola vez, al montar. Como el
-  // diálogo se monta en cada apertura, no hace falta sincronizarlo después.
   const [materiaId, establecerMateriaId] = useState(
     planeacion?.materiaId ?? materias[0]?.id ?? '',
   );
   const [parcial, establecerParcial] = useState(String(planeacion?.parcial ?? 1));
   const [contenido, establecerContenido] = useState(planeacion?.contenido ?? '');
+  const [archivo, establecerArchivo] = useState<File | null>(null);
+
+  const [errores, establecerErrores] = useState<Record<string, string>>({});
   const [error, establecerError] = useState<string | null>(null);
   const [enviando, establecerEnviando] = useState(false);
+
+  /**
+   * Las reglas replican exactamente las del backend, de modo que la interfaz
+   * nunca deje pasar algo que el servidor vaya a rechazar. El servidor las
+   * vuelve a aplicar: aquí solo se adelanta el aviso.
+   */
+  const validar = () =>
+    reunirErrores({
+      materia: esEdicion ? null : materiaId ? null : 'Debes elegir una materia.',
+      contenido: validarTexto(contenido, {
+        etiqueta: 'La planeación',
+        requerido: true,
+        minimo: LIMITES.contenidoPlaneacion.minimo,
+        maximo: LIMITES.contenidoPlaneacion.maximo,
+      }),
+      archivo: validarArchivo(archivo, ARCHIVO.planeacion),
+    });
 
   const enviar = async (evento: FormEvent) => {
     evento.preventDefault();
     establecerError(null);
+
+    const encontrados = validar();
+    establecerErrores(encontrados);
+
+    if (Object.keys(encontrados).length > 0) {
+      enfocarPrimerError(encontrados);
+      return;
+    }
+
     establecerEnviando(true);
 
     try {
       if (planeacion) {
-        await planeaciones.actualizar(planeacion.id, { contenido });
+        await planeaciones.actualizar(planeacion.id, {
+          contenido: contenido.trim(),
+          archivo,
+        });
       } else {
         if (!periodo) throw new Error('No hay un periodo académico activo.');
         await planeaciones.crear({
           materiaId,
           parcial: Number(parcial),
-          contenido,
+          contenido: contenido.trim(),
           periodoId: periodo.id,
+          archivo,
         });
       }
       onGuardado();
@@ -176,6 +227,14 @@ function FormularioPlaneacion({
       establecerEnviando(false);
     }
   };
+
+  /** Al corregir un campo con error, el mensaje desaparece al instante. */
+  const limpiar = (campo: string) =>
+    establecerErrores((previos) => {
+      if (!previos[campo]) return previos;
+      const { [campo]: _, ...resto } = previos;
+      return resto;
+    });
 
   return (
     <Dialogo
@@ -197,8 +256,11 @@ function FormularioPlaneacion({
               id="materia"
               etiqueta="Materia"
               value={materiaId}
-              onChange={(e) => establecerMateriaId(e.target.value)}
-              required
+              error={errores.materia}
+              onChange={(e) => {
+                establecerMateriaId(e.target.value);
+                limpiar('materia');
+              }}
               requerido
             >
               {materias.map((materia) => (
@@ -213,7 +275,6 @@ function FormularioPlaneacion({
               etiqueta="Parcial"
               value={parcial}
               onChange={(e) => establecerParcial(e.target.value)}
-              required
               requerido
             >
               <option value="1">Primer parcial</option>
@@ -226,12 +287,39 @@ function FormularioPlaneacion({
         <AreaTexto
           id="contenido"
           etiqueta="Planeación"
-          ayuda="Objetivos de aprendizaje, secuencia didáctica, recursos e instrumentos de evaluación. Mínimo 20 caracteres."
+          ayuda="Objetivos de aprendizaje, secuencia didáctica, recursos e instrumentos de evaluación."
+          maximo={LIMITES.contenidoPlaneacion.maximo}
           value={contenido}
-          onChange={(e) => establecerContenido(e.target.value)}
-          required
+          error={errores.contenido}
+          onChange={(e) => {
+            establecerContenido(e.target.value);
+            limpiar('contenido');
+          }}
           requerido
         />
+
+        <CampoArchivo
+          id="archivo"
+          etiqueta="Documento de la planeación"
+          ayuda={`Opcional. Si tu planeación es extensa, adjúntala en ${ARCHIVO.planeacion.descripcion} y escribe aquí un resumen. Máximo 5 MB.`}
+          accept={ARCHIVO.planeacion.accept}
+          archivo={archivo}
+          error={errores.archivo}
+          onArchivo={(elegido) => {
+            establecerArchivo(elegido);
+            limpiar('archivo');
+          }}
+        />
+
+        {esEdicion && planeacion.archivoUrl && !archivo ? (
+          <div className="recuadro px-3 py-2">
+            <p className="mb-1.5 text-xs text-grafito">Documento adjunto actual:</p>
+            <EnlaceArchivo url={planeacion.archivoUrl} />
+            <p className="mt-1.5 text-xs text-grafito">
+              Si eliges uno nuevo, sustituye a este.
+            </p>
+          </div>
+        ) : null}
 
         <div className="flex justify-end gap-2 border-t border-regla pt-4">
           <Boton type="button" variante="contorno" onClick={onCerrar}>

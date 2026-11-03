@@ -10,6 +10,12 @@ import { Cargando } from '../components/Cargando';
 import { Dialogo } from '../components/Dialogo';
 import { Sello } from '../components/Sello';
 import { Vacio } from '../components/Vacio';
+import {
+  LIMITES,
+  enfocarPrimerError,
+  reunirErrores,
+  validarTexto,
+} from '../utils/validacion';
 import type { EstadoEvidencia, Evidencia } from '../types';
 
 /** Módulo 3 — Validación de constancias, vista de coordinación. */
@@ -131,6 +137,7 @@ function FormularioValidacion({
 }) {
   const [estado, establecerEstado] = useState<EstadoEvidencia>('VALIDADA');
   const [motivo, establecerMotivo] = useState('');
+  const [errores, establecerErrores] = useState<Record<string, string>>({});
   const [error, establecerError] = useState<string | null>(null);
   const [enviando, establecerEnviando] = useState(false);
 
@@ -139,12 +146,30 @@ function FormularioValidacion({
   const enviar = async (evento: FormEvent) => {
     evento.preventDefault();
     establecerError(null);
+
+    const encontrados = reunirErrores({
+      motivo: rechaza
+        ? validarTexto(motivo, {
+            etiqueta: 'El motivo',
+            requerido: true,
+            minimo: LIMITES.motivoRechazo.minimo,
+            maximo: LIMITES.motivoRechazo.maximo,
+          })
+        : null,
+    });
+    establecerErrores(encontrados);
+
+    if (Object.keys(encontrados).length > 0) {
+      enfocarPrimerError(encontrados);
+      return;
+    }
+
     establecerEnviando(true);
 
     try {
       await evidencias.validar(evidencia.id, {
         estado,
-        motivoRechazo: rechaza ? motivo : undefined,
+        motivoRechazo: rechaza ? motivo.trim() : undefined,
       });
       onResuelto(evidencia.id);
     } catch (fallo) {
@@ -223,10 +248,17 @@ function FormularioValidacion({
           <AreaTexto
             id="motivo"
             etiqueta="Motivo del rechazo"
-            ayuda="Explica qué le falta a la constancia. Mínimo 10 caracteres."
+            ayuda="Explica qué le falta a la constancia. El docente verá este texto."
+            maximo={LIMITES.motivoRechazo.maximo}
             value={motivo}
-            onChange={(e) => establecerMotivo(e.target.value)}
-            required
+            error={errores.motivo}
+            onChange={(e) => {
+              establecerMotivo(e.target.value);
+              establecerErrores((p) => {
+                const { motivo: _, ...r } = p;
+                return r;
+              });
+            }}
             requerido
           />
         ) : null}

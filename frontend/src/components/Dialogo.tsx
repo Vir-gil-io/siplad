@@ -40,25 +40,28 @@ export function Dialogo({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-tinta/40 px-4 py-8"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-tinta/50 px-4 py-8 backdrop-blur-[2px]"
       onClick={onCerrar}
     >
+      {/* La hoja del diálogo se levanta más que las de la página: sombra más
+          abierta y desplazada, que es como se ve un papel sostenido sobre el
+          escritorio y no apoyado en él. */}
       <div
         ref={contenedor}
         role="dialog"
         aria-modal="true"
         aria-label={titulo}
         tabIndex={-1}
-        className="w-full max-w-xl border border-regla-fuerte bg-panel shadow-lg focus:outline-none"
+        className="hoja hoja-alzada w-full max-w-xl focus:outline-none"
         onClick={(evento) => evento.stopPropagation()}
       >
-        <header className="flex items-center justify-between border-b-2 border-tinta px-5 py-3">
+        <header className="hoja-encabezado flex items-center justify-between border-b-2 border-tinta px-5 py-3">
           <h2 className="font-titulo text-lg font-semibold text-tinta">{titulo}</h2>
           <button
             type="button"
             onClick={onCerrar}
             aria-label="Cerrar"
-            className="rounded-[3px] px-2 py-1 text-xl leading-none text-grafito hover:text-tinta"
+            className="-mr-1 rounded-md px-2 py-0.5 text-xl leading-none text-grafito transition-colors hover:bg-papel hover:text-tinta"
           >
             ×
           </button>
