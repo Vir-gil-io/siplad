@@ -1,0 +1,35 @@
+# ---------------------------------------------------------------------------
+# SIPLAD — Normalizacion de finales de linea
+#
+# Sin este archivo, Git convierte los finales de linea segun el sistema
+# operativo de cada quien, y un archivo identico aparece como modificado por
+# completo al compararlo desde otra plataforma.
+#
+# Se normaliza todo a LF en el repositorio, que es lo que esperan los
+# contenedores Linux del despliegue y los interpretes de shell.
+# ---------------------------------------------------------------------------
+
+* text=auto eol=lf
+
+# Los guiones de shell y los hooks de git SIEMPRE con LF: con CRLF el
+# interprete falla con errores del tipo "$'\r': command not found".
+*.sh      text eol=lf
+*.bash    text eol=lf
+
+# Los guiones de PowerShell y por lotes se quedan con finales de Windows.
+*.ps1     text eol=crlf
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
+
+# Archivos binarios: Git no debe tocarlos.
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.pdf     binary
+*.zip     binary
+*.xlsx    binary
+*.docx    binary
+*.woff    binary
+*.woff2   binary

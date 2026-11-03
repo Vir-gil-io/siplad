@@ -10,10 +10,10 @@ alcance de cada tipo y los criterios de aceptación.
 
 El proyecto contempla dos tipos de prueba, conforme a lo establecido en la fase de inicio:
 
-| Tipo | Propósito | Nivel | Ejecución |
-|---|---|---|---|
-| **Pruebas unitarias** | Verificar de forma aislada la lógica de negocio de cada servicio, sin dependencias externas reales | Componente | Automática, en cada Pull Request |
-| **Pruebas funcionales** | Verificar que cada Web Service responde conforme a su contrato y que los flujos de usuario se completan de extremo a extremo | Integración y sistema | Automática y manual |
+| Tipo                    | Propósito                                                                                                                    | Nivel                 | Ejecución                        |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------- | -------------------------------- |
+| **Pruebas unitarias**   | Verificar de forma aislada la lógica de negocio de cada servicio, sin dependencias externas reales                           | Componente            | Automática, en cada Pull Request |
+| **Pruebas funcionales** | Verificar que cada Web Service responde conforme a su contrato y que los flujos de usuario se completan de extremo a extremo | Integración y sistema | Automática y manual              |
 
 ## 2. Pruebas unitarias
 
@@ -26,13 +26,13 @@ del propio framework para sustituir el acceso a base de datos y los clientes de 
 
 Se somete a prueba la capa de lógica de negocio:
 
-| Unidad bajo prueba | Comportamientos verificados |
-|---|---|
-| `AuthService` | Emisión y validación de token, rechazo de credenciales inválidas, cifrado de contraseña |
-| `PlaneacionService` | Alta de planeación, transición de estados, rechazo de duplicados por materia y parcial |
-| `AvanceService` | Cálculo del porcentaje de cumplimiento, validación del estado cumplido, parcial o no cumplido |
-| `EvidenciaService` | Validación de horas acreditadas, formato de archivo permitido, flujo de aprobación |
-| `ReporteService` | Agregación de indicadores por profesor, materia y parcial |
+| Unidad bajo prueba  | Comportamientos verificados                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| `AuthService`       | Emisión y validación de token, rechazo de credenciales inválidas, cifrado de contraseña       |
+| `PlaneacionService` | Alta de planeación, transición de estados, rechazo de duplicados por materia y parcial        |
+| `AvanceService`     | Cálculo del porcentaje de cumplimiento, validación del estado cumplido, parcial o no cumplido |
+| `EvidenciaService`  | Validación de horas acreditadas, formato de archivo permitido, flujo de aprobación            |
+| `ReporteService`    | Agregación de indicadores por profesor, materia y parcial                                     |
 
 ### 2.3 Criterios de aceptación
 
@@ -45,23 +45,27 @@ Se somete a prueba la capa de lógica de negocio:
 
 ### 3.1 Herramientas
 
-| Herramienta | Modalidad | Uso |
-|---|---|---|
-| **Supertest** | Automatizada | Invoca los endpoints HTTP del backend sobre una instancia real de la aplicación y valida códigos de estado, estructura de respuesta y reglas de autorización |
-| **Postman** | Manual | Colección documentada de peticiones por módulo, utilizada para la verificación manual y como evidencia visual del funcionamiento de los Web Services |
+| Herramienta    | Modalidad    | Uso                                                                                                                                                                                                                      |
+| -------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Supertest**  | Automatizada | Invoca los endpoints HTTP del backend sobre una instancia real de la aplicación y valida códigos de estado, estructura de respuesta y reglas de autorización                                                             |
+| **Postman**    | Manual       | Colección documentada de peticiones por módulo, utilizada para la verificación manual y como evidencia visual del funcionamiento de los Web Services                                                                     |
+| **Playwright** | Automatizada | Prueba de humo sobre la interfaz compilada: recorre las pantallas de los dos roles contra una API simulada que responde con la forma exacta de los DTO, de modo que se verifica que la interfaz consume el contrato real |
 
 ### 3.2 Alcance
 
-| Flujo | Verificación |
-|---|---|
-| Autenticación local | Inicio de sesión válido devuelve token; credenciales incorrectas devuelven 401 |
-| Autenticación federada | El flujo OAuth2 con el proveedor externo concluye con una sesión válida |
-| Autorización por rol | Un profesor no puede aprobar planeaciones; un coordinador sí. Acceso indebido devuelve 403 |
-| Registro de planeación | Alta, consulta, modificación y consulta del historial de ciclos anteriores |
-| Revisión de planeación | La coordinación aprueba o solicita ajustes y el estado se refleja en la consulta |
-| Registro de avances | Alta del avance por parcial y recálculo del indicador de cumplimiento |
-| Carga de evidencias | Envío de archivo, almacenamiento en el servicio externo y validación por coordinación |
-| Reportes | Generación de indicadores y exportación a PDF y a Excel |
+| Flujo                     | Verificación                                                                                                     |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Autenticación local       | Inicio de sesión válido devuelve token; credenciales incorrectas devuelven 401                                   |
+| Autenticación federada    | El flujo OAuth2 con el proveedor externo concluye con una sesión válida                                          |
+| Autorización por rol      | Un profesor no puede aprobar planeaciones; un coordinador sí. Acceso indebido devuelve 403                       |
+| Registro de planeación    | Alta, consulta, modificación y consulta del historial de ciclos anteriores                                       |
+| Revisión de planeación    | La coordinación aprueba o solicita ajustes y el estado se refleja en la consulta                                 |
+| Registro de avances       | Alta del avance por parcial y recálculo del indicador de cumplimiento                                            |
+| Carga de evidencias       | Envío de archivo, almacenamiento en el servicio externo y validación por coordinación                            |
+| Reportes                  | Generación de indicadores y exportación a PDF y a Excel                                                          |
+| Interfaz por rol          | Un profesor no alcanza las pantallas de coordinación; la navegación muestra solo lo que su rol permite           |
+| Validación de formularios | Un campo vacío o una cadena por encima del límite del DTO se detienen antes de salir del navegador               |
+| Documento adjunto         | El docente adjunta la planeación y la coordinación abre ese mismo documento desde la bandeja y desde el dictamen |
 
 ### 3.3 Criterios de aceptación
 
@@ -69,26 +73,27 @@ Se somete a prueba la capa de lógica de negocio:
 - Todo endpoint protegido se prueba con token válido, token inválido y rol insuficiente.
 - La colección de Postman se exporta al repositorio y se documenta con capturas de la ejecución.
 - Ninguna prueba funcional depende del estado dejado por otra.
+- La prueba de humo de la interfaz concluye sin errores en la consola del navegador y deja capturas de las pantallas como evidencia.
 
 ## 4. Pruebas de seguridad asociadas
 
 Aunque no constituyen un tipo independiente dentro del esquema, se incorporan verificaciones
 automáticas alineadas con OWASP:
 
-| Verificación | Herramienta | Momento |
-|---|---|---|
-| Análisis estático de código | CodeQL con consultas de seguridad extendidas | Cada push y Pull Request |
-| Auditoría de dependencias vulnerables | `npm audit` | Cada ejecución del flujo de integración continua |
-| Revisión manual del Top 10 | Lista de verificación documentada | Antes de la liberación |
+| Verificación                          | Herramienta                                  | Momento                                          |
+| ------------------------------------- | -------------------------------------------- | ------------------------------------------------ |
+| Análisis estático de código           | CodeQL con consultas de seguridad extendidas | Cada push y Pull Request                         |
+| Auditoría de dependencias vulnerables | `npm audit`                                  | Cada ejecución del flujo de integración continua |
+| Revisión manual del Top 10            | Lista de verificación documentada            | Antes de la liberación                           |
 
 ## 5. Estrategia de ejecución
 
-| Momento | Pruebas ejecutadas |
-|---|---|
-| Durante el desarrollo local | Unitarias en modo observador |
-| Al abrir un Pull Request | Unitarias, funcionales automatizadas, CodeQL y auditoría de dependencias |
-| Antes de integrar a `main` | Suite completa más verificación manual con Postman |
-| Después del despliegue | Verificación manual de los flujos críticos en el entorno de nube |
+| Momento                     | Pruebas ejecutadas                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------------------- |
+| Durante el desarrollo local | Unitarias en modo observador; `npm run test:humo` antes de confirmar cambios de interfaz |
+| Al abrir un Pull Request    | Unitarias, funcionales automatizadas, CodeQL y auditoría de dependencias                 |
+| Antes de integrar a `main`  | Suite completa más verificación manual con Postman                                       |
+| Después del despliegue      | Verificación manual de los flujos críticos en el entorno de nube                         |
 
 ## 6. Entorno de pruebas
 

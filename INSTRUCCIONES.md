@@ -1,209 +1,252 @@
-# Bloque A — Guion de ejecución
+# Bloque C — Guion de ejecución
 
-Sigue los pasos en orden. Tiempo estimado: 50 minutos.
+Frontend completo: los cuatro módulos operables, acceso local y federado, navegación por rol,
+gráficas de cumplimiento y exportación.
 
----
-
-## Paso 0 — Preparar el equipo (5 min)
-
-Abre PowerShell y verifica que tienes lo necesario:
-
-```powershell
-git --version
-node --version
-gh --version
-```
-
-Si falta GitHub CLI:
-
-```powershell
-winget install GitHub.cli
-```
-
-Cierra y vuelve a abrir la terminal. Después autentícate:
-
-```powershell
-gh auth login
-```
-
-Elige: `GitHub.com` → `HTTPS` → `Y` para autenticar con credenciales de Git → `Login with a web browser`. Copia el código que te muestra y pégalo en el navegador.
+Tiempo estimado: 10 minutos de ejecución.
 
 ---
 
-## Paso 1 — Crear el repositorio (3 min)
+## Lo que ya viene verificado
 
-```powershell
-cd $HOME\Documents
-mkdir siplad
-cd siplad
-git init -b main
-```
+Se ejecutó en un entorno limpio antes de empaquetarlo:
 
-Descomprime el contenido de `siplad-bloque-a` **dentro** de esta carpeta. Debe quedar así:
+| Verificación                      | Resultado                                |
+| --------------------------------- | ---------------------------------------- |
+| Compilación de TypeScript         | Sin errores                              |
+| Compilación de producción         | Correcta, 112 kB comprimidos de arranque |
+| ESLint                            | Sin problemas                            |
+| Prueba de humo con navegador real | 27 de 27 verificaciones correctas        |
 
-```
-siplad\
-├── .github\
-├── docs\
-├── scripts\
-├── README.md
-└── _gitignore
-```
+La prueba de humo levanta la aplicación compilada contra un servidor que imita la API con la
+forma exacta de los DTO del backend, y la recorre con un navegador: entra como docente, revisa
+las tres pantallas, intenta entrar a reportes y comprueba que lo devuelve, entra como
+coordinación, abre el diálogo de dictamen, verifica que las gráficas se dibujen y que no haya
+desplazamiento horizontal a 390 px.
 
-Renombra el archivo `_gitignore` a `.gitignore`:
-
-```powershell
-Rename-Item _gitignore .gitignore
-```
-
-> El archivo viajó con guion bajo porque Windows oculta los archivos que empiezan con punto al descomprimir.
-
-Primer commit y publicación:
-
-```powershell
-git add .
-git commit -m "chore(repo): configuracion inicial, politicas y automatizaciones"
-gh repo create siplad --public --source=. --remote=origin --push
-```
-
-Crea la rama de integración:
-
-```powershell
-git switch -c develop
-git push -u origin develop
-git switch main
-```
+**Lo que esa prueba no cubre:** la integración con tu backend real. Eso lo confirmas tú en el
+Paso 3.
 
 ---
 
-## Paso 2 — Proteger las ramas (5 min)
+## Paso 1 — Colocar los archivos
 
-En el navegador: **Settings → Rules → Rulesets → New branch ruleset**.
+Descomprime en la raíz del repositorio. Queda así:
 
-1. Nombre: `Proteccion de ramas principales`
-2. Enforcement status: **Active**
-3. Target branches → **Add target** → **Include by pattern** → escribe `main` → repite con `develop`
-4. Activa estas casillas:
-   - `Restrict deletions`
-   - `Require a pull request before merging` → Required approvals: **0**
-   - `Require status checks to pass` → busca y agrega: `Backend (NestJS)`, `Frontend (React + Vite)`, `Políticas de Pull Request`
-   - `Block force pushes`
-5. **Create**
-
-> Approvals en 0 porque eres el único colaborador y GitHub no te deja aprobar tu propio PR. La política escrita en `docs/01-politicas-control-versiones.md` documenta el requisito de revisión; la regla técnica impide el push directo, que es lo que evalúa la rúbrica.
-
-Si los status checks no aparecen en la lista todavía, deja esa casilla para el final del Paso 4 y vuelve a editar el ruleset.
-
----
-
-## Paso 3 — Crear el GitHub Project (10 min)
-
-1. En tu perfil de GitHub: pestaña **Projects** → **New project** → plantilla **Table** → nombre `SIPLAD - Proyecto Integrador Global` → **Create project**
-2. Enlaza el repositorio: menú `...` (arriba a la derecha) → **Settings** → **Manage access** no; busca la sección del repositorio en la barra lateral del Project o usa el botón **Add item** una vez
-3. Activa la carga automática: `...` → **Workflows** → **Auto-add to project** → **Edit** → selecciona el repositorio `siplad` → filtro `is:issue` → **Save and turn on workflow**
-
-Ahora crea los campos personalizados que pide la rúbrica. En la vista de tabla, haz clic en el `+` del último encabezado de columna → **New field**:
-
-| Campo | Tipo | Opciones |
-|---|---|---|
-| `Responsable` | Text | — |
-| `Periodo de ejecución` | Date | (crea dos: `Inicio` y `Fin`) |
-| `Estado` | Single select | `Por hacer`, `En progreso`, `En revisión`, `Terminado` |
-| `Sprint` | Single select | `Sprint 0`, `Sprint 1`, `Sprint 2`, `Sprint 3` |
-
-> El campo `Status` que viene por defecto puedes renombrarlo a `Estado` en lugar de crear uno nuevo.
-
----
-
-## Paso 4 — Cargar la planeación (5 min)
-
-Con el workflow de auto-add ya encendido, ejecuta desde **Git Bash** (no PowerShell, el script es bash):
-
-```bash
-cd ~/Documents/siplad
-bash scripts/bootstrap-issues.sh
+```
+siplad/
+├── backend/          (ya existía)
+├── frontend/         <- nuevo
+├── .lintstagedrc.json  <- se reemplaza para incluir el frontend
+└── ...
 ```
 
-El script crea 11 etiquetas, 4 hitos y 25 issues con descripción y criterios de aceptación. Todos entran solos al Project.
-
-Si prefieres PowerShell, instala Git Bash o ejecuta:
+Renombra los dos archivos que viajan con guion bajo:
 
 ```powershell
-bash scripts/bootstrap-issues.sh
+cd $HOME\Documents\siplad
+Rename-Item _lintstagedrc.json .lintstagedrc.json -Force
+Rename-Item frontend\_prettierrc .prettierrc
 ```
 
-(Git para Windows incluye bash en el PATH.)
+Si PowerShell se queja de que `.lintstagedrc.json` ya existe, bórralo primero: el nuevo añade la
+línea del frontend a los hooks.
 
----
+Crea la rama:
 
-## Paso 5 — Llenar los campos del Project (10 min)
-
-Abre el Project en vista de tabla. Para cada issue llena:
-
-- **Responsable:** `Gilberto Fabián Correa González`
-- **Sprint:** según el hito que ya trae asignado
-- **Inicio / Fin:** usa estos rangos
-  - Sprint 0 → 2 nov, mañana
-  - Sprint 1 → 2 nov, tarde
-  - Sprint 2 → 2 nov noche a 3 nov mediodía
-  - Fin: 3 nov
-- **Estado:** `Por hacer` en todos, salvo los dos primeros del Sprint 0 que ya puedes marcar `Terminado`
-
-> Truco: selecciona varias filas con la casilla de la izquierda y edita el campo una sola vez para todas.
-
-Agrega también una segunda vista tipo **Board** agrupada por `Estado`: la rúbrica valora la visualización del flujo.
-
----
-
-## Paso 6 — Validar las automatizaciones con un PR real (10 min)
-
-Esto deja evidencia de los tres workflows funcionando y de la política de Pull Request.
-
-```bash
+```powershell
 git switch develop
-git switch -c docs/3-diagrama-arquitectura
+git pull
+git switch -c feat/19-frontend-react
 ```
 
-Edita cualquier archivo de `docs/` (agrega una línea) y:
+## Paso 2 — Instalar
 
-```bash
+```powershell
+cd frontend
+npm install
+```
+
+## Paso 3 — Arrancar contra tu backend
+
+En una terminal, el backend:
+
+```powershell
+cd backend
+npm run start:dev
+```
+
+En otra, el frontend:
+
+```powershell
+cd frontend
+npm run dev
+```
+
+Abre `http://localhost:5173`. No hace falta configurar la dirección de la API: el servidor de
+desarrollo reenvía `/api` al puerto 3000, así que el navegador ve un solo origen y no hay
+problemas de CORS.
+
+Entra con las credenciales que sembró el backend:
+
+| Rol          | Correo                   | Contraseña  |
+| ------------ | ------------------------ | ----------- |
+| Docente      | jcorrea@utng.edu.mx      | Siplad2026* |
+| Coordinación | coordinacion@utng.edu.mx | Siplad2026* |
+
+### El recorrido para el video
+
+Este orden muestra los cuatro módulos y el control de acceso en unos tres minutos:
+
+1. **Entra como docente.** Verás las planeaciones sembradas con su sello de estado, y una con
+   ajustes solicitados mostrando el comentario de coordinación.
+2. **Registra una planeación** con el botón de arriba. Elige materia y parcial, escribe el
+   contenido, guarda.
+3. **Ve a Mis avances.** Las planeaciones aprobadas aparecen ahí. Registra un avance con 92%: el
+   sello de "Cumplido" se estampa con la animación.
+4. **Ve a Mis constancias.** Carga un PDF cualquiera y verás que entra como pendiente.
+5. **Escribe `localhost:5173/reportes` en la barra de direcciones.** Te devuelve a tus
+   planeaciones: un docente no entra ahí. **Esto vale la pena capturarlo.**
+6. **Sal y entra como coordinación.** La navegación es distinta: bandeja de revisión, validación
+   y reportes.
+7. **Dictamina la planeación que registraste.** Prueba primero "Solicitar ajustes" para ver que
+   exige el motivo, luego aprueba.
+8. **Valida la constancia** que cargaste.
+9. **Abre Reportes.** Los indicadores ya reflejan lo que acabas de hacer. Descarga el Excel y el
+   PDF.
+
+## Paso 4 — Comprobar la compilación de producción
+
+```powershell
+npm run build
+npm run preview
+```
+
+Abre `http://localhost:4173`. Es el mismo paquete que se desplegará en la nube, y la vista previa
+también reenvía `/api` al backend local, así que puedes probarlo completo sin desplegar.
+
+**Captura la salida de `npm run build`:** muestra el tamaño del paquete y que la compilación pasa
+sin errores de tipos.
+
+## Paso 5 — Lint e integración
+
+```powershell
+cd ..
+npm run lint
+```
+
+Debe pasar el backend y el frontend. Después:
+
+```powershell
 git add .
-git commit -m "docs(arquitectura): agregar nota sobre el entorno de ejecucion"
-git push -u origin docs/3-diagrama-arquitectura
-gh pr create --base develop --title "docs(arquitectura): agregar nota sobre el entorno de ejecucion" --body "Agrega una nota al documento de arquitectura.
-
-Closes #3"
+git commit -m "feat(frontend): implementar los cuatro modulos con navegacion por rol y reportes"
+git push -u origin feat/19-frontend-react
+gh pr create --base develop --title "feat(frontend): implementar los cuatro modulos con navegacion por rol y reportes" --body "Implementa la capa de presentacion completa.`n`n- Acceso local y federado con Google`n- Navegacion condicionada por rol`n- Modulos de planeacion, avances, evidencias y reportes`n- Graficas de cumplimiento y exportacion a PDF y Excel`n`nCloses #5`nCloses #11`nCloses #12`nCloses #15`nCloses #19"
 ```
 
-Entra al PR en GitHub y verifica que corren los tres checks. Cuando estén en verde:
+Cierra cinco issues más.
 
-```bash
-gh pr merge --squash --delete-branch
+## Paso 6 — La prueba de humo (opcional)
+
+Si te alcanza el tiempo, esto es evidencia fuerte de pruebas funcionales de la capa de
+presentación para el criterio IV.
+
+```powershell
+cd frontend
+npm install -D playwright
+npx playwright install chromium
 ```
 
-**Toma capturas de:** la lista de checks en verde, la pestaña Actions con las tres ejecuciones, y el grafo de commits. Van al documento final.
+La descarga del navegador tarda unos minutos. Después, con el backend **apagado**:
+
+```powershell
+# Terminal 1
+node pruebas/api-simulada.mjs
+
+# Terminal 2
+npm run build
+npm run preview
+
+# Terminal 3
+node pruebas/prueba-humo.mjs
+```
+
+Imprime las 27 verificaciones y deja tres capturas en `pruebas/`. **Captura esa salida.**
+
+Si no te alcanza el tiempo, sáltalo: las pruebas del backend ya cubren el criterio y esto es
+adicional.
 
 ---
 
-## Paso 7 — Evidencia desde el IDE (2 min)
+## Lo que se entregó
 
-Abre la carpeta en Visual Studio Code, ve al panel **Control de código fuente**, haz un cambio pequeño, confírmalo y súbelo desde ahí. Captura la pantalla.
+### Los cuatro módulos
 
-Con esto queda cubierta la evidencia desde los tres medios: línea de comandos, IDE y GitHub.
+| Módulo               | Vista del docente                        | Vista de coordinación                            |
+| -------------------- | ---------------------------------------- | ------------------------------------------------ |
+| Planeación didáctica | Registrar, corregir, ver dictamen        | Bandeja de revisión, aprobar o solicitar ajustes |
+| Avances por parcial  | Registrar sobre planeación aprobada      | Visible en los reportes                          |
+| Evidencias           | Cargar constancia, ver horas acreditadas | Bandeja de validación                            |
+| Reportes             | —                                        | Indicadores, gráficas, tabla y exportación       |
+
+### La capa de presentación, por carpeta
+
+| Carpeta           | Qué contiene                                                  |
+| ----------------- | ------------------------------------------------------------- |
+| `src/api/`        | Cliente HTTP y un servicio por cada Web Service del backend   |
+| `src/auth/`       | Contexto de sesión y guard de rutas por rol                   |
+| `src/components/` | Piezas reutilizables: sello, acta, controles, diálogo, avisos |
+| `src/hooks/`      | Carga de datos con cancelación de respuestas obsoletas        |
+| `src/layouts/`    | Estructura de la aplicación y navegación por rol              |
+| `src/pages/`      | Una vista por módulo                                          |
+| `src/types/`      | Contratos compartidos con la API                              |
+
+### Decisiones que conviene saber explicar
+
+**El token viaja en el fragmento de la URL** en el retorno de Google, no en la cadena de
+consulta. El fragmento no se envía al servidor, así que el token no queda en las bitácoras de
+acceso ni en el encabezado de referencia.
+
+**El guard de rutas del frontend no es la seguridad.** La verificación real la hace el backend;
+esto solo evita mostrar una pantalla que terminaría en 403. Si te lo preguntan en la defensa,
+esa es la respuesta correcta.
+
+**Los reportes se cargan por separado.** La librería de gráficas pesa más que el resto de la
+aplicación junta, así que se descarga solo al abrir esa vista. Un docente nunca la baja. Se ve en
+la salida de `npm run build`: dos paquetes en lugar de uno.
+
+**Las peticiones obsoletas se descartan.** Si cambias de filtro antes de que llegue la respuesta
+anterior, la vieja se ignora en lugar de pintarse encima de la nueva.
+
+### Sobre el diseño
+
+La interfaz toma su estructura del **acta académica**: bloque de encabezado institucional,
+renglones reglados y el estado como **sello de tinta** en lugar de etiqueta de color. La paleta
+sale de ahí: tinta violeta del sello para lo aprobado, lápiz rojo del docente para los ajustes,
+grafito para lo que está en espera.
+
+Los colores de las gráficas se verificaron con un validador de accesibilidad: el cumplimiento es
+una escala divergente (favorable ← neutro → desfavorable), y los dos polos separan ΔE 18.8 en
+protanopia y 22.5 en visión normal, por encima del piso recomendado. Los tres superan 3:1 de
+contraste. Además, cada segmento lleva su cifra impresa y hay leyenda y tabla de detalle, de modo
+que la lectura nunca depende solo del color.
+
+Si te preguntan por qué no se parece a un panel de control típico: porque el usuario real es un
+docente que registra entre clases y una coordinadora que revisa lotes, y para los dos el renglón
+reglado se recorre más rápido que una cuadrícula de tarjetas.
 
 ---
 
-## Checklist de cierre del Bloque A
+## Checklist de cierre del Bloque C
 
-- [ ] Repositorio público creado con ramas `main` y `develop`
-- [ ] Ruleset activo: sin push directo, PR obligatorio, checks requeridos
-- [ ] Políticas documentadas en `docs/01-politicas-control-versiones.md`
-- [ ] Esquema de pruebas documentado en `docs/02-esquema-de-pruebas.md`
-- [ ] Metodología ágil justificada con seis puntos en `docs/03-metodologia-agil.md`
-- [ ] Tres workflows ejecutándose correctamente
-- [ ] 25 issues creados con descripción y criterios de aceptación
-- [ ] Project con campos Responsable, Periodo, Estado y Sprint llenos
-- [ ] Un Pull Request abierto, validado e integrado
-- [ ] Capturas de CLI, IDE y GitHub guardadas
+- [ ] Archivos colocados y renombrados
+- [ ] `npm install` del frontend
+- [ ] Aplicación corriendo contra el backend real
+- [ ] Recorrido completo probado con los dos roles
+- [ ] Captura del intento de acceso a reportes como docente
+- [ ] Captura de `npm run build`
+- [ ] `npm run lint` pasa en la raíz
+- [ ] Pull Request integrado y cinco issues cerrados
+- [ ] Prueba de humo ejecutada (opcional)
 
-Cuando termines, avísame y seguimos con el Bloque B.
+Falta el Bloque D: Docker, el balanceador y el despliegue en Render.

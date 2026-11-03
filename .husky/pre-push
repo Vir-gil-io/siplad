@@ -1,0 +1,4 @@
+# Las pruebas se ejecutan antes de enviar, no en cada commit: mantener el
+# commit agil y la rama remota siempre en verde.
+echo "Ejecutando pruebas unitarias antes de enviar..."
+npm --prefix backend test
