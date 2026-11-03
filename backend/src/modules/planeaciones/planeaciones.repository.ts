@@ -16,7 +16,18 @@ export class PlaneacionesRepository {
   /** Relaciones que se incluyen en toda lectura, para evitar consultas N+1. */
   private readonly relaciones = {
     materia: { select: { id: true, clave: true, nombre: true } },
-    periodo: { select: { id: true, nombre: true, anio: true, activo: true } },
+    // Las fechas del periodo viajan con la planeacion porque el formulario de
+    // avance acota con ellas el tramo que el docente puede informar.
+    periodo: {
+      select: {
+        id: true,
+        nombre: true,
+        anio: true,
+        activo: true,
+        fechaInicio: true,
+        fechaFin: true,
+      },
+    },
     usuario: { select: { id: true, nombre: true, email: true } },
     revisadoPor: { select: { id: true, nombre: true } },
     avance: true,

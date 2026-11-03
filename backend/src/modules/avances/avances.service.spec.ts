@@ -8,6 +8,7 @@ import { EstadoAvance, EstadoPlaneacion, Rol } from '@prisma/client';
 
 import { AvancesService } from './avances.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { FestivosService } from '../../integrations/festivos/festivos.service';
 import { UsuarioAutenticado } from '../../common/decorators/usuario-actual.decorator';
 
 /**
@@ -17,6 +18,7 @@ describe('AvancesService', () => {
   let servicio: AvancesService;
   let prisma: {
     planeacion: { findUnique: jest.Mock };
+    periodoAcademico: { findUniqueOrThrow: jest.Mock };
     avance: {
       create: jest.Mock;
       findMany: jest.Mock;
@@ -25,6 +27,18 @@ describe('AvancesService', () => {
       delete: jest.Mock;
     };
   };
+  let festivos: { contarDiasHabiles: jest.Mock };
+
+  /** Periodo academico de referencia para las pruebas del tramo informado. */
+  const periodo = {
+    id: 'per-1',
+    nombre: 'Agosto - Diciembre 2026',
+    fechaInicio: new Date('2026-08-17T00:00:00.000Z'),
+    fechaFin: new Date('2026-12-18T23:59:59.999Z'),
+  };
+
+  /** Tramo valido, dentro del periodo y ya concluido. */
+  const tramo = { fechaInicio: '2026-08-17', fechaFin: '2026-09-26' };
 
   const docente: UsuarioAutenticado = {
     id: 'doc-1',
@@ -44,13 +58,16 @@ describe('AvancesService', () => {
     id: 'plan-1',
     parcial: 2,
     usuarioId: 'doc-1',
+    periodoId: 'per-1',
     estado: EstadoPlaneacion.APROBADA,
     avance: null,
+    periodo,
   };
 
   beforeEach(async () => {
     prisma = {
       planeacion: { findUnique: jest.fn() },
+      periodoAcademico: { findUniqueOrThrow: jest.fn(() => Promise.resolve(periodo)) },
       avance: {
         create: jest.fn((args) => Promise.resolve({ id: 'av-1', ...args.data })),
         findMany: jest.fn(() => Promise.resolve([])),
@@ -60,8 +77,14 @@ describe('AvancesService', () => {
       },
     };
 
+    festivos = { contarDiasHabiles: jest.fn(() => Promise.resolve(28)) };
+
     const modulo: TestingModule = await Test.createTestingModule({
-      providers: [AvancesService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        AvancesService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: FestivosService, useValue: festivos },
+      ],
     }).compile();
 
     servicio = modulo.get<AvancesService>(AvancesService);
@@ -88,7 +111,7 @@ describe('AvancesService', () => {
     it('deriva el estado a partir del porcentaje informado', async () => {
       prisma.planeacion.findUnique.mockResolvedValue(planeacionAprobada);
 
-      await servicio.crear({ planeacionId: 'plan-1', porcentaje: 70 }, docente);
+      await servicio.crear({ planeacionId: 'plan-1', porcentaje: 70, ...tramo }, docente);
 
       expect(prisma.avance.create.mock.calls[0][0].data.estado).toBe(
         EstadoAvance.PARCIAL,
@@ -102,7 +125,7 @@ describe('AvancesService', () => {
       });
 
       await expect(
-        servicio.crear({ planeacionId: 'plan-1', porcentaje: 90 }, docente),
+        servicio.crear({ planeacionId: 'plan-1', porcentaje: 90, ...tramo }, docente),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -113,7 +136,7 @@ describe('AvancesService', () => {
       });
 
       await expect(
-        servicio.crear({ planeacionId: 'plan-1', porcentaje: 90 }, docente),
+        servicio.crear({ planeacionId: 'plan-1', porcentaje: 90, ...tramo }, docente),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -124,7 +147,7 @@ describe('AvancesService', () => {
       });
 
       await expect(
-        servicio.crear({ planeacionId: 'plan-1', porcentaje: 90 }, docente),
+        servicio.crear({ planeacionId: 'plan-1', porcentaje: 90, ...tramo }, docente),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -132,8 +155,94 @@ describe('AvancesService', () => {
       prisma.planeacion.findUnique.mockResolvedValue(null);
 
       await expect(
-        servicio.crear({ planeacionId: 'inexistente', porcentaje: 90 }, docente),
+        servicio.crear(
+          { planeacionId: 'inexistente', porcentaje: 90, ...tramo },
+          docente,
+        ),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('tramo informado', () => {
+    beforeEach(() => {
+      prisma.planeacion.findUnique.mockResolvedValue(planeacionAprobada);
+    });
+
+    it('guarda el tramo con los limites del dia en UTC', async () => {
+      await servicio.crear({ planeacionId: 'plan-1', porcentaje: 70, ...tramo }, docente);
+
+      const guardado = prisma.avance.create.mock.calls[0][0].data;
+      expect(guardado.fechaInicio.toISOString()).toBe('2026-08-17T00:00:00.000Z');
+      expect(guardado.fechaFin.toISOString()).toBe('2026-09-26T23:59:59.999Z');
+    });
+
+    it('rechaza un tramo invertido', async () => {
+      await expect(
+        servicio.crear(
+          {
+            planeacionId: 'plan-1',
+            porcentaje: 70,
+            fechaInicio: '2026-09-26',
+            fechaFin: '2026-08-17',
+          },
+          docente,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.avance.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un tramo que comienza antes del periodo academico', async () => {
+      await expect(
+        servicio.crear(
+          {
+            planeacionId: 'plan-1',
+            porcentaje: 70,
+            fechaInicio: '2026-07-01',
+            fechaFin: '2026-09-26',
+          },
+          docente,
+        ),
+      ).rejects.toThrow(/Agosto - Diciembre 2026/);
+    });
+
+    it('rechaza un tramo que termina despues del periodo academico', async () => {
+      await expect(
+        servicio.crear(
+          {
+            planeacionId: 'plan-1',
+            porcentaje: 70,
+            fechaInicio: '2026-08-17',
+            fechaFin: '2027-01-15',
+          },
+          docente,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rechaza un tramo que comienza en el futuro', async () => {
+      const futuro = new Date(Date.now() + 86_400_000 * 10).toISOString().slice(0, 10);
+
+      await expect(
+        servicio.crear(
+          {
+            planeacionId: 'plan-1',
+            porcentaje: 70,
+            fechaInicio: futuro,
+            fechaFin: futuro,
+          },
+          docente,
+        ),
+      ).rejects.toThrow(/futuro/);
+    });
+
+    it('acompana el avance con los dias habiles del tramo', async () => {
+      const creado = await servicio.crear(
+        { planeacionId: 'plan-1', porcentaje: 70, ...tramo },
+        docente,
+      );
+
+      expect(festivos.contarDiasHabiles).toHaveBeenCalled();
+      expect(creado.diasHabiles).toBe(28);
     });
   });
 

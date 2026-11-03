@@ -7,6 +7,7 @@ import {
 import { EstadoAvance, EstadoPlaneacion, Rol } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { FestivosService } from '../../integrations/festivos/festivos.service';
 import { CrearAvanceDto } from './dto/crear-avance.dto';
 import { ActualizarAvanceDto } from './dto/actualizar-avance.dto';
 import { UsuarioAutenticado } from '../../common/decorators/usuario-actual.decorator';
@@ -28,13 +29,85 @@ export class AvancesService {
     planeacion: {
       include: {
         materia: { select: { id: true, clave: true, nombre: true } },
-        periodo: { select: { id: true, nombre: true, anio: true } },
+        periodo: {
+          select: {
+            id: true,
+            nombre: true,
+            anio: true,
+            fechaInicio: true,
+            fechaFin: true,
+          },
+        },
         usuario: { select: { id: true, nombre: true, email: true } },
       },
     },
   };
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly festivos: FestivosService,
+  ) {}
+
+  /**
+   * Comprueba el tramo informado contra el periodo academico de la planeacion.
+   *
+   * Las fechas llegan como 'AAAA-MM-DD' y se interpretan en UTC de forma
+   * deliberada: el servidor de produccion corre en UTC y el equipo del docente
+   * no, de modo que comparar con la hora local desplazaria el limite un dia
+   * segun quien registre y desde donde.
+   */
+  private validarTramo(
+    inicio: string,
+    fin: string,
+    periodo: { nombre: string; fechaInicio: Date; fechaFin: Date },
+  ): { fechaInicio: Date; fechaFin: Date } {
+    const fechaInicio = new Date(`${inicio.slice(0, 10)}T00:00:00.000Z`);
+    const fechaFin = new Date(`${fin.slice(0, 10)}T23:59:59.999Z`);
+
+    if (fechaFin < fechaInicio) {
+      throw new BadRequestException(
+        'La fecha de fin no puede ser anterior a la de inicio.',
+      );
+    }
+
+    const hoy = new Date();
+    if (fechaInicio > hoy) {
+      throw new BadRequestException('El tramo informado no puede comenzar en el futuro.');
+    }
+
+    if (fechaInicio < periodo.fechaInicio || fechaFin > periodo.fechaFin) {
+      throw new BadRequestException(
+        `El tramo informado debe quedar dentro del periodo ${periodo.nombre}, ` +
+          `del ${AvancesService.enTexto(periodo.fechaInicio)} al ` +
+          `${AvancesService.enTexto(periodo.fechaFin)}.`,
+      );
+    }
+
+    return { fechaInicio, fechaFin };
+  }
+
+  /** Fecha en formato corto para los mensajes de error. */
+  private static enTexto(fecha: Date): string {
+    return fecha.toISOString().slice(0, 10);
+  }
+
+  /**
+   * Anade los dias habiles del tramo informado.
+   *
+   * Es lo que convierte el rango en informacion util para coordinacion: un
+   * 60 % logrado en ocho dias habiles no dice lo mismo que el mismo 60 % en
+   * treinta. El calculo descuenta los festivos oficiales que entrega la capa
+   * de integracion, que los cachea por anio.
+   */
+  private async conDiasHabiles<T extends { fechaInicio: Date; fechaFin: Date }>(
+    avance: T,
+  ): Promise<T & { diasHabiles: number }> {
+    const diasHabiles = await this.festivos.contarDiasHabiles(
+      avance.fechaInicio,
+      avance.fechaFin,
+    );
+    return { ...avance, diasHabiles };
+  }
 
   /**
    * Regla de negocio central del modulo: la clasificacion no la decide el
@@ -50,7 +123,7 @@ export class AvancesService {
   async crear(dto: CrearAvanceDto, usuario: UsuarioAutenticado) {
     const planeacion = await this.prisma.planeacion.findUnique({
       where: { id: dto.planeacionId },
-      include: { avance: true },
+      include: { avance: true, periodo: true },
     });
 
     if (!planeacion) {
@@ -75,19 +148,25 @@ export class AvancesService {
       );
     }
 
-    return this.prisma.avance.create({
+    const tramo = this.validarTramo(dto.fechaInicio, dto.fechaFin, planeacion.periodo);
+
+    const creado = await this.prisma.avance.create({
       data: {
         planeacionId: dto.planeacionId,
         porcentaje: dto.porcentaje,
         estado: AvancesService.clasificar(dto.porcentaje),
+        fechaInicio: tramo.fechaInicio,
+        fechaFin: tramo.fechaFin,
         observaciones: dto.observaciones,
       },
       include: this.relaciones,
     });
+
+    return this.conDiasHabiles(creado);
   }
 
   async listar(usuario: UsuarioAutenticado, periodoId?: string) {
-    return this.prisma.avance.findMany({
+    const avances = await this.prisma.avance.findMany({
       where: {
         planeacion: {
           ...(usuario.rol === Rol.PROFESOR && { usuarioId: usuario.id }),
@@ -95,8 +174,10 @@ export class AvancesService {
         },
       },
       include: this.relaciones,
-      orderBy: { registradoEn: 'desc' },
+      orderBy: [{ fechaFin: 'desc' }, { registradoEn: 'desc' }],
     });
+
+    return Promise.all(avances.map((avance) => this.conDiasHabiles(avance)));
   }
 
   async obtenerPorId(id: string, usuario: UsuarioAutenticado) {
@@ -123,19 +204,38 @@ export class AvancesService {
       throw new ForbiddenException('Solo el autor puede modificar el avance registrado.');
     }
 
-    return this.prisma.avance.update({
+    // El tramo se revalida completo aunque solo se envie uno de los dos
+    // extremos: corregir solo la fecha de fin podria invertir el intervalo.
+    let tramo: { fechaInicio: Date; fechaFin: Date } | undefined;
+
+    if (dto.fechaInicio !== undefined || dto.fechaFin !== undefined) {
+      const periodo = await this.prisma.periodoAcademico.findUniqueOrThrow({
+        where: { id: avance.planeacion.periodoId },
+      });
+
+      tramo = this.validarTramo(
+        dto.fechaInicio ?? AvancesService.enTexto(avance.fechaInicio),
+        dto.fechaFin ?? AvancesService.enTexto(avance.fechaFin),
+        periodo,
+      );
+    }
+
+    const actualizado = await this.prisma.avance.update({
       where: { id },
       data: {
         ...(dto.porcentaje !== undefined && {
           porcentaje: dto.porcentaje,
           estado: AvancesService.clasificar(dto.porcentaje),
         }),
+        ...(tramo && { fechaInicio: tramo.fechaInicio, fechaFin: tramo.fechaFin }),
         ...(dto.observaciones !== undefined && {
           observaciones: dto.observaciones,
         }),
       },
       include: this.relaciones,
     });
+
+    return this.conDiasHabiles(actualizado);
   }
 
   async eliminar(id: string, usuario: UsuarioAutenticado) {
