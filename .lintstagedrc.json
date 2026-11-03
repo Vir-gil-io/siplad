@@ -3,6 +3,10 @@
     "eslint --fix --config backend/eslint.config.mjs",
     "prettier --write --config backend/.prettierrc"
   ],
+  "frontend/src/**/*.{ts,tsx}": [
+    "eslint --fix --config frontend/eslint.config.js",
+    "prettier --write --config frontend/.prettierrc"
+  ],
   "**/*.{json,yml,yaml,md}": [
     "prettier --write --config backend/.prettierrc --ignore-unknown"
   ]

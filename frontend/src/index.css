@@ -1,0 +1,165 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   SIPLAD — Sistema de diseño
+
+   La interfaz toma su estructura del acta académica: el renglón reglado es la
+   unidad de registro y el estado se comunica como sello de tinta, no como
+   etiqueta de color. Las reglas horizontales son información, no adorno.
+   --------------------------------------------------------------------------- */
+
+@theme {
+  /* --- Color ------------------------------------------------------------- */
+  /* Tinta de pluma institucional, para todo el texto principal. */
+  --color-tinta: #23263b;
+  --color-tinta-suave: #4a4f6b;
+
+  /* Grafito: información secundaria y estados en espera. */
+  --color-grafito: #6b7083;
+
+  /* Tinta violeta del sello oficial: aprobaciones y acciones afirmativas. */
+  --color-sello: #5a3c8f;
+  --color-sello-claro: #ede7f6;
+
+  /* Lápiz rojo del docente: ajustes solicitados y no cumplido. */
+  --color-lapiz: #ae3f2c;
+  --color-lapiz-claro: #f8e8e4;
+
+  /* Papel rayado del acta y superficie de los paneles. */
+  --color-papel: #eff1ec;
+  --color-panel: #fbfcfa;
+
+  /* Regla del renglón. */
+  --color-regla: #c9cec4;
+  --color-regla-fuerte: #a8afa0;
+
+  /* --- Tipografía -------------------------------------------------------- */
+  --font-titulo: 'Archivo', system-ui, sans-serif;
+  --font-texto: 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+/* --- Base ----------------------------------------------------------------
+   Va dentro de @layer base de forma deliberada. En Tailwind v4 todo el
+   framework vive en capas, y el CSS sin capa gana sobre cualquier capa: un
+   'button { color: inherit }' suelto anularia la utilidad 'text-white' de
+   todos los botones solidos.
+   ------------------------------------------------------------------------- */
+
+@layer base {
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-papel);
+  color: var(--color-tinta);
+  font-family: var(--font-texto);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-titulo);
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.015em;
+}
+
+/* Las cifras se alinean en columna: imprescindible en una tabla de registros. */
+table,
+.cifra {
+  font-variant-numeric: tabular-nums;
+}
+
+/* El foco siempre visible: se navega con teclado entre muchos renglones. */
+:focus-visible {
+  outline: 2px solid var(--color-sello);
+  outline-offset: 2px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+}  /* fin de @layer base */
+
+/* --- El sello ------------------------------------------------------------
+   El único movimiento de la aplicación. Al cambiar el estado de un registro,
+   la marca se estampa: un golpe corto, con rotación ligera, como un sello
+   sobre papel. Responde a una acción del usuario; nada más se anima.
+   ------------------------------------------------------------------------- */
+
+@keyframes estampar {
+  0% {
+    transform: scale(1.45) rotate(-7deg);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(0.96) rotate(-2.5deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(-2deg);
+    opacity: 1;
+  }
+}
+
+.sello {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.1875rem 0.5rem;
+  border: 1.5px solid currentColor;
+  font-family: var(--font-titulo);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transform: rotate(-2deg);
+  white-space: nowrap;
+}
+
+.sello-estampado {
+  animation: estampar 340ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sello-estampado {
+    animation: none;
+  }
+}
+
+/* --- Renglón del acta ----------------------------------------------------
+   La regla inferior separa registros. El último renglón no la lleva, porque
+   ahí termina el acta.
+   ------------------------------------------------------------------------- */
+
+.renglon {
+  border-bottom: 1px solid var(--color-regla);
+}
+
+.renglon:last-child {
+  border-bottom: none;
+}
+
+.renglon-interactivo {
+  transition: background-color 120ms ease;
+}
+
+.renglon-interactivo:hover {
+  background-color: color-mix(in srgb, var(--color-sello) 4%, transparent);
+}
