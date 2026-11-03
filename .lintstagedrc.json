@@ -1,0 +1,9 @@
+{
+  "backend/{src,test,prisma}/**/*.ts": [
+    "eslint --fix --config backend/eslint.config.mjs",
+    "prettier --write --config backend/.prettierrc"
+  ],
+  "**/*.{json,yml,yaml,md}": [
+    "prettier --write --config backend/.prettierrc --ignore-unknown"
+  ]
+}
