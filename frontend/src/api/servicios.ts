@@ -117,11 +117,23 @@ export const avances = {
   listar: (periodoId?: string) =>
     cliente.get<Avance[]>('/avances', { params: { periodoId } }).then((r) => r.data),
 
-  crear: (datos: { planeacionId: string; porcentaje: number; observaciones?: string }) =>
-    cliente.post<Avance>('/avances', datos).then((r) => r.data),
+  crear: (datos: {
+    planeacionId: string;
+    porcentaje: number;
+    fechaInicio: string;
+    fechaFin: string;
+    observaciones?: string;
+  }) => cliente.post<Avance>('/avances', datos).then((r) => r.data),
 
-  actualizar: (id: string, datos: { porcentaje?: number; observaciones?: string }) =>
-    cliente.patch<Avance>(`/avances/${id}`, datos).then((r) => r.data),
+  actualizar: (
+    id: string,
+    datos: {
+      porcentaje?: number;
+      fechaInicio?: string;
+      fechaFin?: string;
+      observaciones?: string;
+    },
+  ) => cliente.patch<Avance>(`/avances/${id}`, datos).then((r) => r.data),
 
   eliminar: (id: string) =>
     cliente.delete<{ mensaje: string }>(`/avances/${id}`).then((r) => r.data),

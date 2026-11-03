@@ -1,0 +1,95 @@
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Archivo, IBM Plex Sans, Segoe UI, sans-serif",
+    "fontSize": "15px",
+    "primaryColor": "#fbfcf9",
+    "primaryTextColor": "#23263b",
+    "primaryBorderColor": "#b9bdb2",
+    "lineColor": "#6b7083",
+    "clusterBkg": "#eff1ec",
+    "clusterBorder": "#b9bdb2"
+  },
+  "flowchart": { "curve": "basis", "nodeSpacing": 24, "rankSpacing": 70, "padding": 14 }
+}}%%
+flowchart LR
+
+  subgraph A["Cliente y entrada"]
+    direction TB
+    NAV["Navegador<br/><i>docente · coordinación</i>"]
+    BAL["Nginx balanceador<br/><i>round-robin · TLS en el borde</i>"]
+    WEB["Presentación<br/>React 19 + Vite · Tailwind<br/><i>estáticos en Nginx</i>"]
+  end
+
+  subgraph B["Aplicación · NestJS"]
+    direction TB
+
+    subgraph B1["Réplicas"]
+      direction LR
+      API1["Instancia 1"]
+      API2["Instancia 2"]
+    end
+
+    subgraph B2["Cadena transversal"]
+      direction LR
+      GJWT["JwtAuthGuard"]
+      GROL["RolesGuard"]
+      VAL["ValidationPipe"]
+      FIL["Filtro de excepciones"]
+    end
+
+    subgraph B3["Controladores y lógica de negocio"]
+      direction TB
+      WS1["1 · Autenticación<br/><i>JWT · OAuth2</i>"]
+      WS2["2 · Planeación didáctica<br/><i>unicidad · estados</i>"]
+      WS3["3 · Control de avances<br/><i>clasifica · valida tramo</i>"]
+      WS4["4 · Evidencias<br/><i>horas · validación</i>"]
+      WS5["5 · Reportes<br/><i>indicadores</i>"]
+    end
+  end
+
+  subgraph C["Integración y datos"]
+    direction TB
+    I1["CloudinaryService<br/><i>Adapter</i>"]
+    I2["FestivosService<br/><i>Adapter · caché</i>"]
+    I3["ExportacionService<br/><i>PDF · Excel</i>"]
+    REPO["Repositorios<br/><i>Prisma ORM</i>"]
+    DB[("PostgreSQL<br/><i>parametrizado</i>")]
+  end
+
+  subgraph D["Servicios externos"]
+    direction TB
+    E1["Google OAuth2"]
+    E2["Cloudinary"]
+    E3["Nager.Date"]
+  end
+
+  NAV ==>|HTTPS| BAL
+  BAL ==>|"/"| WEB
+  BAL ==>|"/api · por turnos"| B1
+
+  B1 ==> B2
+  B2 ==> B3
+
+  WS2 --> I1
+  WS4 --> I1
+  WS3 --> I2
+  WS5 --> I2
+  WS5 --> I3
+  B3 ==> REPO
+  REPO ==> DB
+
+  WS1 ==> E1
+  I1 ==> E2
+  I2 ==> E3
+
+  classDef externo fill:#ede7f6,stroke:#5a3c8f,color:#3f2a63;
+  classDef almacen fill:#e4ebf5,stroke:#4a4f6b,color:#23263b;
+  classDef guardia fill:#fdeeea,stroke:#ae3f2c,color:#8c3222;
+  classDef replica fill:#f3eefb,stroke:#5a3c8f,color:#3f2a63;
+  classDef servicio fill:#f7f5fc,stroke:#5a3c8f,color:#23263b;
+  class E1,E2,E3 externo;
+  class DB almacen;
+  class GJWT,GROL,VAL,FIL guardia;
+  class API1,API2 replica;
+  class WS1,WS2,WS3,WS4,WS5 servicio;
