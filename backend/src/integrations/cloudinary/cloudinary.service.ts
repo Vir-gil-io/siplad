@@ -130,13 +130,30 @@ export class CloudinaryService {
     }
   }
 
+  /**
+   * El modo de acceso y el tipo de entrega se declaran de forma explicita en
+   * lugar de confiar en el valor por omision de la cuenta: si el entorno
+   * estuviera configurado para subir como restringido o autenticado, la
+   * direccion devuelta respondria 401 al abrirse desde el navegador.
+   *
+   * Nota sobre los PDF: Cloudinary los clasifica como recurso de tipo imagen
+   * y bloquea su entrega por omision en cuentas nuevas. Eso se habilita una
+   * sola vez en la consola —Settings, Security, "PDF and ZIP files delivery"—
+   * y no hay forma de activarlo desde el codigo. Los DOC y DOCX viajan como
+   * recurso 'raw' y no estan sujetos a esa restriccion.
+   */
   private enviarAProveedor(
     archivo: Express.Multer.File,
     carpeta: string,
   ): Promise<UploadApiResponse> {
     return new Promise((resolver, rechazar) => {
       const flujo = cloudinary.uploader.upload_stream(
-        { folder: carpeta, resource_type: 'auto' },
+        {
+          folder: carpeta,
+          resource_type: 'auto',
+          type: 'upload',
+          access_mode: 'public',
+        },
         (error, resultado) => {
           if (error || !resultado) {
             // El proveedor devuelve su propio objeto de error; se normaliza a
