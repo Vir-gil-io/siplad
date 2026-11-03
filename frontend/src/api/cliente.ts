@@ -7,8 +7,19 @@ import axios, { AxiosError } from 'axios';
  * los errores de la API a mensajes legibles. Ningún componente construye
  * peticiones por su cuenta.
  */
+/**
+ * La comparacion es con '||' y no con '??' de forma deliberada.
+ *
+ * La construccion en contenedor define VITE_API_URL como cadena vacia a
+ * proposito, para que la aplicacion use rutas relativas y el balanceador las
+ * reenvie. Una cadena vacia no es nula, asi que '??' la dejaria pasar y axios
+ * armaria las peticiones sin el prefijo '/api': irian a parar al servidor de
+ * archivos estaticos y devolverian el index.html en lugar de datos.
+ */
+const DIRECCION_API = import.meta.env.VITE_API_URL || '/api';
+
 export const cliente = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? '/api',
+  baseURL: DIRECCION_API,
   timeout: 20000,
 });
 

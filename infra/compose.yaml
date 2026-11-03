@@ -1,0 +1,140 @@
+# ---------------------------------------------------------------------------
+# SIPLAD — Orquestacion de la aplicacion completa
+#
+#   Levantar:   docker compose -f infra/compose.yaml up -d --build
+#   Ver estado: docker compose -f infra/compose.yaml ps
+#   Bitacoras:  docker compose -f infra/compose.yaml logs -f balanceador
+#   Apagar:     docker compose -f infra/compose.yaml down
+#   Borrar:     docker compose -f infra/compose.yaml down -v
+#
+# Topologia:
+#
+#        :8080  ->  balanceador (nginx)
+#                        |
+#              /api  ->  backend-1 , backend-2     (round-robin)
+#              /     ->  frontend  (nginx estatico)
+#                        |
+#                    postgres
+#
+# Las dos replicas del backend se declaran como servicios con nombre, en lugar
+# de usar 'deploy.replicas', para que 'docker compose ps' las muestre de forma
+# explicita y el balanceo sea visible en la demostracion.
+# ---------------------------------------------------------------------------
+
+# Definicion compartida por las dos replicas: evita duplicar la configuracion.
+x-backend-comun: &backend-comun
+  build:
+    context: ../backend
+    dockerfile: Dockerfile
+  image: siplad-backend:1.0.0
+  restart: unless-stopped
+  environment:
+    NODE_ENV: production
+    PORT: 3000
+    DATABASE_URL: postgresql://siplad:siplad@postgres:5432/siplad?schema=public
+    JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en infra/.env}
+    JWT_EXPIRACION: ${JWT_EXPIRACION:-8h}
+    CORS_ORIGENES: ${CORS_ORIGENES:-http://localhost:8080}
+    FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+    GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+    GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:8080/api/auth/google/callback}
+    CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+    CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+    CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+    NAGER_DATE_URL: ${NAGER_DATE_URL:-https://date.nager.at/api/v3}
+    NAGER_DATE_PAIS: ${NAGER_DATE_PAIS:-MX}
+  depends_on:
+    postgres:
+      condition: service_healthy
+  networks:
+    - siplad
+
+services:
+  # --- Servidor de base de datos -------------------------------------------
+  postgres:
+    image: postgres:18-alpine
+    container_name: siplad-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: siplad
+      POSTGRES_PASSWORD: siplad
+      POSTGRES_DB: siplad
+    ports:
+      # Se publica en 5433 a proposito: el 5432 suele estar ocupado por una
+      # instalacion local de PostgreSQL.
+      - '5433:5432'
+    volumes:
+      - postgres_datos:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U siplad -d siplad']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - siplad
+
+  # --- Servidores de aplicacion --------------------------------------------
+  backend-1:
+    <<: *backend-comun
+    container_name: siplad-backend-1
+
+  backend-2:
+    <<: *backend-comun
+    container_name: siplad-backend-2
+    # La segunda replica espera a que la primera este sana: asi solo una
+    # instancia aplica las migraciones y no compiten por el mismo bloqueo.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend-1:
+        condition: service_healthy
+
+  # --- Interfaz -------------------------------------------------------------
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        # Vacio: la aplicacion usa rutas relativas y el balanceador las
+        # reenvia. Asi la misma imagen sirve en cualquier dominio.
+        VITE_API_URL: ''
+    image: siplad-frontend:1.0.0
+    container_name: siplad-frontend
+    restart: unless-stopped
+    networks:
+      - siplad
+
+  # --- Balanceador de carga -------------------------------------------------
+  balanceador:
+    image: nginx:1.27-alpine
+    container_name: siplad-balanceador
+    restart: unless-stopped
+    ports:
+      - '8080:80'
+    volumes:
+      - ./nginx/balanceador.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      backend-1:
+        condition: service_healthy
+      backend-2:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1/api/salud']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - siplad
+
+volumes:
+  postgres_datos:
+    name: siplad_postgres_datos
+
+networks:
+  siplad:
+    name: siplad_red
+    driver: bridge

@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+uploads
+.env
+.env.local
+*.log
+.git
+.github
+test
+*.spec.ts
+.eslintcache
