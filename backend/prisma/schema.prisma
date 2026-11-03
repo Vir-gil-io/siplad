@@ -1,0 +1,157 @@
+// ---------------------------------------------------------------------------
+// SIPLAD — Esquema de la base de datos
+// Capa de datos de la arquitectura multicapa.
+// ---------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --------------------------- Enumeraciones ---------------------------------
+
+enum Rol {
+  PROFESOR
+  COORDINADOR
+}
+
+enum EstadoPlaneacion {
+  ENVIADA
+  APROBADA
+  AJUSTES_SOLICITADOS
+}
+
+enum EstadoAvance {
+  CUMPLIDO
+  PARCIAL
+  NO_CUMPLIDO
+}
+
+enum EstadoEvidencia {
+  PENDIENTE
+  VALIDADA
+  RECHAZADA
+}
+
+// ------------------------------ Entidades ----------------------------------
+
+model Usuario {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  nombre    String
+  password  String?  // Nulo cuando el usuario accede unicamente por OAuth2
+  googleId  String?  @unique
+  rol       Rol      @default(PROFESOR)
+  activo    Boolean  @default(true)
+  creadoEn  DateTime @default(now())
+
+  planeaciones         Planeacion[] @relation("PlaneacionesDelDocente")
+  planeacionesRevisadas Planeacion[] @relation("PlaneacionesRevisadas")
+  evidencias           Evidencia[]  @relation("EvidenciasDelDocente")
+  evidenciasValidadas  Evidencia[]  @relation("EvidenciasValidadas")
+
+  @@map("usuarios")
+}
+
+model Materia {
+  id       String   @id @default(uuid())
+  clave    String   @unique
+  nombre   String
+  activa   Boolean  @default(true)
+  creadaEn DateTime @default(now())
+
+  planeaciones Planeacion[]
+
+  @@map("materias")
+}
+
+model PeriodoAcademico {
+  id          String   @id @default(uuid())
+  nombre      String   @unique
+  anio        Int
+  fechaInicio DateTime
+  fechaFin    DateTime
+  activo      Boolean  @default(false)
+  creadoEn    DateTime @default(now())
+
+  planeaciones Planeacion[]
+  evidencias   Evidencia[]
+
+  @@map("periodos_academicos")
+}
+
+model Planeacion {
+  id                 String           @id @default(uuid())
+  parcial            Int
+  contenido          String
+  archivoUrl         String?
+  estado             EstadoPlaneacion @default(ENVIADA)
+  comentarioRevision String?
+  revisadoEn         DateTime?
+  creadaEn           DateTime         @default(now())
+  actualizadaEn      DateTime         @updatedAt
+
+  usuarioId String
+  usuario   Usuario @relation("PlaneacionesDelDocente", fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  materiaId String
+  materia   Materia @relation(fields: [materiaId], references: [id])
+
+  periodoId String
+  periodo   PeriodoAcademico @relation(fields: [periodoId], references: [id])
+
+  revisadoPorId String?
+  revisadoPor   Usuario? @relation("PlaneacionesRevisadas", fields: [revisadoPorId], references: [id])
+
+  avance Avance?
+
+  // Una sola planeacion por docente, materia, periodo y parcial.
+  @@unique([usuarioId, materiaId, periodoId, parcial], name: "planeacion_unica")
+  @@index([usuarioId])
+  @@index([periodoId])
+  @@map("planeaciones")
+}
+
+model Avance {
+  id            String       @id @default(uuid())
+  porcentaje    Int
+  estado        EstadoAvance
+  observaciones String?
+  registradoEn  DateTime     @default(now())
+  actualizadoEn DateTime     @updatedAt
+
+  planeacionId String     @unique
+  planeacion   Planeacion @relation(fields: [planeacionId], references: [id], onDelete: Cascade)
+
+  @@map("avances")
+}
+
+model Evidencia {
+  id            String          @id @default(uuid())
+  nombreCurso   String
+  institucion   String
+  fecha         DateTime
+  horas         Int
+  archivoUrl    String
+  estado        EstadoEvidencia @default(PENDIENTE)
+  motivoRechazo String?
+  validadoEn    DateTime?
+  creadaEn      DateTime        @default(now())
+
+  usuarioId String
+  usuario   Usuario @relation("EvidenciasDelDocente", fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  periodoId String
+  periodo   PeriodoAcademico @relation(fields: [periodoId], references: [id])
+
+  validadoPorId String?
+  validadoPor   Usuario? @relation("EvidenciasValidadas", fields: [validadoPorId], references: [id])
+
+  @@index([usuarioId])
+  @@index([periodoId])
+  @@map("evidencias")
+}
