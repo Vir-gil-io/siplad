@@ -7,7 +7,7 @@
 # ---------------------------------------------------------------------------
 
 # --- Etapa 1: compilacion ---------------------------------------------------
-FROM node:22-slim AS compilacion
+FROM node:26-slim AS compilacion
 
 WORKDIR /app
 
