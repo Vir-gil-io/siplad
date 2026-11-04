@@ -34,7 +34,7 @@ export function Panel() {
   return (
     <div className="min-h-dvh">
       <header className="border-b-2 border-tinta bg-panel">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-[1760px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div>
             <p className="font-titulo text-lg font-bold tracking-tight text-tinta">
               SIPLAD
@@ -57,7 +57,7 @@ export function Panel() {
 
         <nav
           aria-label="Secciones"
-          className="mx-auto max-w-6xl overflow-x-auto px-4 sm:px-6"
+          className="mx-auto w-full max-w-[1760px] overflow-x-auto px-4 sm:px-6"
         >
           <ul className="flex gap-1">
             {enlaces.map((enlace) => (
@@ -81,7 +81,7 @@ export function Panel() {
         </nav>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto w-full max-w-[1760px] px-4 py-6 sm:px-6 sm:py-8">
         <Outlet />
       </main>
     </div>

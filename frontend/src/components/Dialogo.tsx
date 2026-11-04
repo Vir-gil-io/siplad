@@ -69,7 +69,7 @@ export function Dialogo({
   return (
     <div
       className={[
-        'fixed inset-0 flex items-start justify-center overflow-y-auto',
+        'se-vela fixed inset-0 flex items-start justify-center overflow-y-auto',
         'bg-tinta/50 px-4 py-8 backdrop-blur-[2px]',
         ancho === 'amplio' ? 'z-[60]' : 'z-50',
       ].join(' ')}
@@ -85,7 +85,7 @@ export function Dialogo({
         aria-label={subtitulo ? `${titulo}. ${subtitulo}` : titulo}
         tabIndex={-1}
         className={[
-          'hoja hoja-alzada w-full focus:outline-none',
+          'hoja hoja-alzada se-alza w-full focus:outline-none',
           ancho === 'amplio' ? 'max-w-5xl' : 'max-w-xl',
         ].join(' ')}
         onClick={(evento) => evento.stopPropagation()}
