@@ -11,7 +11,7 @@
 # ---------------------------------------------------------------------------
 
 # --- Etapa 1: dependencias completas y cliente de Prisma -------------------
-FROM node:22-slim AS dependencias
+FROM node:26-slim AS dependencias
 
 WORKDIR /app
 
@@ -33,7 +33,7 @@ RUN npx prisma generate
 
 
 # --- Etapa 2: compilacion ---------------------------------------------------
-FROM node:22-slim AS compilacion
+FROM node:26-slim AS compilacion
 
 WORKDIR /app
 
@@ -44,7 +44,7 @@ RUN npm run build
 
 
 # --- Etapa 3: dependencias de produccion ------------------------------------
-FROM node:22-slim AS dependencias-produccion
+FROM node:26-slim AS dependencias-produccion
 
 WORKDIR /app
 
@@ -59,7 +59,7 @@ RUN npm ci --omit=dev && npx prisma generate && npm cache clean --force
 
 
 # --- Etapa 4: ejecucion -----------------------------------------------------
-FROM node:22-slim AS ejecucion
+FROM node:26-slim AS ejecucion
 
 WORKDIR /app
 
