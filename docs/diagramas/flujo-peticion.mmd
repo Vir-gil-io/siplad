@@ -1,0 +1,80 @@
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Archivo, IBM Plex Sans, Segoe UI, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#fbfcf9",
+    "primaryTextColor": "#23263b",
+    "primaryBorderColor": "#b9bdb2",
+    "lineColor": "#6b7083",
+    "actorBkg": "#fbfcf9",
+    "actorBorder": "#5a3c8f",
+    "actorTextColor": "#23263b",
+    "signalColor": "#4a4f6b",
+    "signalTextColor": "#23263b",
+    "labelBoxBkg": "#ede7f6",
+    "labelBoxBorder": "#5a3c8f",
+    "noteBkg": "#f5f0fb",
+    "noteBorder": "#5a3c8f",
+    "noteTextColor": "#3f2a63"
+  }
+}}%%
+sequenceDiagram
+  autonumber
+
+  actor D as Docente
+  participant B as Nginx<br/>balanceador
+  participant G as Cadena<br/>transversal
+  participant C as AvancesController
+  participant S as AvancesService
+  participant F as FestivosService
+  participant N as Nager.Date
+  participant R as Prisma
+  participant P as PostgreSQL
+
+  D->>B: POST /api/avances<br/>token + tramo informado
+  B->>G: reparto por turnos<br/>hacia una réplica
+
+  rect rgb(253, 238, 234)
+    Note over G: Control de acceso y forma
+    G->>G: JwtAuthGuard verifica la firma del token
+    G->>G: RolesGuard exige el rol PROFESOR
+    G->>G: ValidationPipe descarta propiedades no declaradas
+  end
+
+  G->>C: dto validado + usuario autenticado
+  C->>S: crear(dto, usuario)
+
+  S->>R: busca la planeación con su periodo
+  R->>P: SELECT parametrizado
+  P-->>R: planeación + periodo
+  R-->>S: registro
+
+  rect rgb(245, 240, 251)
+    Note over S: Reglas del dominio
+    S->>S: ¿la planeación es del docente?
+    S->>S: ¿está APROBADA y sin avance previo?
+    S->>S: ¿el tramo cae dentro del periodo y ya concluyó?
+    S->>S: clasifica según el porcentaje
+  end
+
+  S->>R: INSERT del avance con su tramo
+  R->>P: INSERT parametrizado
+  P-->>R: avance creado
+  R-->>S: registro
+
+  S->>F: días hábiles del tramo
+  alt año ya consultado
+    F-->>S: desde la caché
+  else primera consulta del año
+    F->>N: GET festivos oficiales de México
+    N-->>F: calendario del año
+    F-->>S: días hábiles
+  end
+
+  S-->>C: avance + días hábiles
+  C-->>G: 201 Created
+  G-->>B: respuesta
+  B-->>D: avance registrado
+
+  Note over D,P: Si algo falla, el filtro de excepciones traduce el error<br/>a un mensaje sin detalles internos antes de devolverlo.
