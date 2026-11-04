@@ -311,27 +311,27 @@ export function CampoArchivo({
 }
 
 /**
- * Enlace a un documento adjunto.
+ * Disparador del visor de documentos.
  *
- * Se usa en la vista del docente y en la de coordinación: el mismo documento,
- * presentado igual en los dos lados.
+ * Es un boton y no un enlace a proposito: el documento se abre en un visor
+ * dentro de la misma pantalla, no en otra pestana. Mantener la apariencia de
+ * enlace confundiria sobre lo que va a ocurrir al pulsarlo.
  */
-export function EnlaceArchivo({
-  url,
+export function BotonDocumento({
+  onVer,
   etiqueta = 'Ver documento adjunto',
 }: {
-  url: string;
+  onVer: () => void;
   etiqueta?: string;
 }) {
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex items-center gap-1.5 rounded border border-regla bg-papel px-2.5 py-1 text-sm font-medium text-sello transition-colors hover:border-sello hover:bg-sello-claro"
+    <button
+      type="button"
+      onClick={onVer}
+      className="inline-flex items-center gap-1.5 rounded border border-regla bg-papel px-2.5 py-1 text-sm font-medium text-sello shadow-[0_1px_1px_rgba(35,38,59,.05)] transition-all duration-100 hover:border-sello hover:bg-sello-claro active:translate-y-px"
     >
       <span aria-hidden="true">📄</span>
       {etiqueta}
-    </a>
+    </button>
   );
 }

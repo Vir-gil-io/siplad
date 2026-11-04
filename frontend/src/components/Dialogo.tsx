@@ -1,4 +1,14 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
+
+/**
+ * Pila de diálogos abiertos.
+ *
+ * Un diálogo puede abrir otro encima —el visor de documentos se abre desde el
+ * de dictamen, por ejemplo—. Sin llevar la cuenta, cada instancia escucharía
+ * Escape por su lado y una sola pulsación cerraría toda la pila de golpe.
+ * Registrando cuál está arriba, Escape cierra únicamente ese.
+ */
+const pila: string[] = [];
 
 /**
  * Diálogo modal.
@@ -12,18 +22,33 @@ import { useEffect, useRef, type ReactNode } from 'react';
  */
 export function Dialogo({
   titulo,
+  subtitulo,
   onCerrar,
+  ancho = 'normal',
+  sinRelleno = false,
   children,
 }: {
   titulo: string;
+  /** Segunda línea del encabezado, para precisar qué se está viendo. */
+  subtitulo?: string;
   onCerrar: () => void;
+  /** 'amplio' para contenido que necesita espacio, como un documento. */
+  ancho?: 'normal' | 'amplio';
+  /** Suprime el relleno del cuerpo cuando el contenido llega hasta el borde. */
+  sinRelleno?: boolean;
   children: ReactNode;
 }) {
   const contenedor = useRef<HTMLDivElement>(null);
+  const identificador = useId();
 
   useEffect(() => {
+    pila.push(identificador);
+
     const alPresionar = (evento: KeyboardEvent) => {
-      if (evento.key === 'Escape') onCerrar();
+      // Solo responde el diálogo que está arriba de la pila.
+      if (evento.key === 'Escape' && pila[pila.length - 1] === identificador) {
+        onCerrar();
+      }
     };
 
     document.addEventListener('keydown', alPresionar);
@@ -34,13 +59,20 @@ export function Dialogo({
 
     return () => {
       document.removeEventListener('keydown', alPresionar);
-      document.body.style.overflow = desbordeOriginal;
+      const posicion = pila.indexOf(identificador);
+      if (posicion !== -1) pila.splice(posicion, 1);
+      // El desplazamiento solo se devuelve cuando se cierra el último.
+      if (pila.length === 0) document.body.style.overflow = desbordeOriginal;
     };
-  }, [onCerrar]);
+  }, [identificador, onCerrar]);
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-tinta/50 px-4 py-8 backdrop-blur-[2px]"
+      className={[
+        'fixed inset-0 flex items-start justify-center overflow-y-auto',
+        'bg-tinta/50 px-4 py-8 backdrop-blur-[2px]',
+        ancho === 'amplio' ? 'z-[60]' : 'z-50',
+      ].join(' ')}
       onClick={onCerrar}
     >
       {/* La hoja del diálogo se levanta más que las de la página: sombra más
@@ -50,23 +82,31 @@ export function Dialogo({
         ref={contenedor}
         role="dialog"
         aria-modal="true"
-        aria-label={titulo}
+        aria-label={subtitulo ? `${titulo}. ${subtitulo}` : titulo}
         tabIndex={-1}
-        className="hoja hoja-alzada w-full max-w-xl focus:outline-none"
+        className={[
+          'hoja hoja-alzada w-full focus:outline-none',
+          ancho === 'amplio' ? 'max-w-5xl' : 'max-w-xl',
+        ].join(' ')}
         onClick={(evento) => evento.stopPropagation()}
       >
-        <header className="hoja-encabezado flex items-center justify-between border-b-2 border-tinta px-5 py-3">
-          <h2 className="font-titulo text-lg font-semibold text-tinta">{titulo}</h2>
+        <header className="hoja-encabezado flex items-start justify-between gap-3 border-b-2 border-tinta px-5 py-3">
+          <div className="min-w-0">
+            <h2 className="font-titulo text-lg font-semibold text-tinta">{titulo}</h2>
+            {subtitulo ? (
+              <p className="mt-0.5 truncate text-sm text-grafito">{subtitulo}</p>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={onCerrar}
             aria-label="Cerrar"
-            className="-mr-1 rounded-md px-2 py-0.5 text-xl leading-none text-grafito transition-colors hover:bg-papel hover:text-tinta"
+            className="-mr-1 shrink-0 rounded-md px-2 py-0.5 text-xl leading-none text-grafito transition-colors hover:bg-papel hover:text-tinta"
           >
             ×
           </button>
         </header>
-        <div className="px-5 py-4">{children}</div>
+        <div className={sinRelleno ? '' : 'px-5 py-4'}>{children}</div>
       </div>
     </div>
   );
