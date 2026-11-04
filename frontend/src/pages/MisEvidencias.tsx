@@ -5,9 +5,10 @@ import { mensajeDeError } from '../api/cliente';
 import { useCargaRemota } from '../hooks/useCargaRemota';
 import { Acta, Renglon } from '../components/Acta';
 import { Aviso } from '../components/Aviso';
-import { Boton, Campo, CampoArchivo, EnlaceArchivo } from '../components/Controles';
+import { Boton, BotonDocumento, Campo, CampoArchivo } from '../components/Controles';
 import { Cargando } from '../components/Cargando';
 import { Dialogo } from '../components/Dialogo';
+import { VisorDocumento } from '../components/VisorDocumento';
 import { Sello } from '../components/Sello';
 import { Vacio } from '../components/Vacio';
 import {
@@ -43,6 +44,7 @@ export function MisEvidencias() {
   );
 
   const [dialogoAbierto, establecerDialogoAbierto] = useState(false);
+  const [enVisor, establecerEnVisor] = useState<Evidencia | null>(null);
 
   if (cargando) return <Cargando mensaje="Cargando tus constancias" />;
   if (error && !datos) return <Aviso>{error}</Aviso>;
@@ -107,7 +109,10 @@ export function MisEvidencias() {
                   ) : null}
 
                   <div className="mt-2.5">
-                    <EnlaceArchivo url={registro.archivoUrl} etiqueta="Ver constancia" />
+                    <BotonDocumento
+                      onVer={() => establecerEnVisor(registro)}
+                      etiqueta="Ver constancia"
+                    />
                   </div>
                 </div>
 
@@ -126,6 +131,15 @@ export function MisEvidencias() {
             establecerDialogoAbierto(false);
             recargar();
           }}
+        />
+      ) : null}
+
+      {enVisor ? (
+        <VisorDocumento
+          url={enVisor.archivoUrl}
+          titulo="Constancia de capacitación"
+          subtitulo={`${enVisor.nombreCurso} · ${enVisor.institucion} · ${enVisor.horas} horas`}
+          onCerrar={() => establecerEnVisor(null)}
         />
       ) : null}
     </div>

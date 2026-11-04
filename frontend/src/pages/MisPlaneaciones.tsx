@@ -8,12 +8,13 @@ import { Aviso } from '../components/Aviso';
 import {
   AreaTexto,
   Boton,
+  BotonDocumento,
   CampoArchivo,
-  EnlaceArchivo,
   Selector,
 } from '../components/Controles';
 import { Cargando } from '../components/Cargando';
 import { Dialogo } from '../components/Dialogo';
+import { VisorDocumento } from '../components/VisorDocumento';
 import { Sello } from '../components/Sello';
 import { Vacio } from '../components/Vacio';
 import {
@@ -52,6 +53,10 @@ export function MisPlaneaciones() {
   const [enFormulario, establecerEnFormulario] = useState<Planeacion | null | undefined>(
     undefined,
   );
+
+  // El visor vive en la página y no dentro de cada fila: así una sola
+  // instancia atiende tanto a la lista como al diálogo de corrección.
+  const [enVisor, establecerEnVisor] = useState<Planeacion | null>(null);
 
   if (cargando) return <Cargando mensaje="Cargando tus planeaciones" />;
   if (error && !datos) return <Aviso>{error}</Aviso>;
@@ -108,7 +113,7 @@ export function MisPlaneaciones() {
 
                   {registro.archivoUrl ? (
                     <div className="mt-2.5">
-                      <EnlaceArchivo url={registro.archivoUrl} />
+                      <BotonDocumento onVer={() => establecerEnVisor(registro)} />
                     </div>
                   ) : null}
                 </div>
@@ -136,10 +141,20 @@ export function MisPlaneaciones() {
           materias={materias}
           periodo={periodo}
           onCerrar={() => establecerEnFormulario(undefined)}
+          onVerDocumento={establecerEnVisor}
           onGuardado={() => {
             establecerEnFormulario(undefined);
             recargar();
           }}
+        />
+      ) : null}
+
+      {enVisor?.archivoUrl ? (
+        <VisorDocumento
+          url={enVisor.archivoUrl}
+          titulo="Documento de la planeación"
+          subtitulo={`${enVisor.materia.nombre} · Parcial ${enVisor.parcial} · ${enVisor.periodo.nombre}`}
+          onCerrar={() => establecerEnVisor(null)}
         />
       ) : null}
     </div>
@@ -151,12 +166,14 @@ function FormularioPlaneacion({
   materias,
   periodo,
   onCerrar,
+  onVerDocumento,
   onGuardado,
 }: {
   planeacion: Planeacion | null;
   materias: Materia[];
   periodo: PeriodoAcademico | null;
   onCerrar: () => void;
+  onVerDocumento: (planeacion: Planeacion) => void;
   onGuardado: () => void;
 }) {
   const esEdicion = planeacion !== null;
@@ -314,7 +331,7 @@ function FormularioPlaneacion({
         {esEdicion && planeacion.archivoUrl && !archivo ? (
           <div className="recuadro px-3 py-2">
             <p className="mb-1.5 text-xs text-grafito">Documento adjunto actual:</p>
-            <EnlaceArchivo url={planeacion.archivoUrl} />
+            <BotonDocumento onVer={() => onVerDocumento(planeacion)} />
             <p className="mt-1.5 text-xs text-grafito">
               Si eliges uno nuevo, sustituye a este.
             </p>

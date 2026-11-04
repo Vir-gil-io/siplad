@@ -227,23 +227,76 @@ try {
 
   registrar(
     'Coordinación ve el documento que adjuntó el docente',
-    (await pagina
-      .locator('a:has-text("Ver documento adjunto")[href*="planeacion-pl3.pdf"]')
-      .count()) > 0,
+    (await pagina.locator('button:has-text("Ver documento adjunto")').count()) > 0,
+  );
+
+  // El documento se abre en un visor dentro de la misma pantalla.
+  await pagina.click('button:has-text("Ver documento adjunto")');
+  await pagina.waitForSelector('[role="dialog"][aria-label*="Documento de la planeación"]', {
+    timeout: 10000,
+  });
+
+  registrar(
+    'El documento se muestra en un visor, sin salir de la pantalla',
+    (await pagina.locator('[role="dialog"] iframe[src*="planeacion-pl3.pdf"]').count()) > 0,
+  );
+
+  const rotulo = await pagina
+    .locator('[role="dialog"][aria-label*="Documento de la planeación"]')
+    .getAttribute('aria-label');
+  registrar(
+    'El visor indica qué documento se está viendo',
+    (rotulo ?? '').includes('Parcial'),
+    rotulo ?? 'sin rótulo',
+  );
+
+  await pagina.screenshot({ path: 'pruebas/captura-visor.png' });
+
+  registrar(
+    'El visor ofrece abrirlo aparte si no puede incrustarse',
+    (await pagina.locator('[role="dialog"] a:has-text("Abrir en pestaña nueva")').count()) > 0,
+  );
+
+  await pagina.keyboard.press('Escape');
+  await pagina.waitForTimeout(300);
+  registrar(
+    'Al cerrar el visor se vuelve a la bandeja',
+    (await pagina.locator('[role="dialog"]').count()) === 0,
   );
 
   await pagina.click('button:has-text("Dictaminar")');
   await pagina.waitForSelector('[role="dialog"]', { timeout: 10000 });
   registrar(
-    'El enlace al documento también está en el diálogo de dictamen',
-    (await pagina
-      .locator('[role="dialog"] a:has-text("Abrir el documento")')
-      .count()) > 0,
+    'El acceso al documento también está en el diálogo de dictamen',
+    (await pagina.locator('[role="dialog"] button:has-text("Ver el documento")').count()) > 0,
   );
 
-  // Solicitar ajustes exige un comentario; el DTO pide al menos 10 caracteres.
-  await pagina.locator('[role="dialog"] label:has-text("Solicitar ajustes") input').check();
+  // El visor se abre encima del dictamen; cerrarlo debe devolver el
+  // formulario intacto, no cerrar los dos de una pulsación. El campo de
+  // comentario solo existe tras elegir «Solicitar ajustes».
+  await pagina
+    .locator('[role="dialog"] label:has-text("Solicitar ajustes") input')
+    .check();
   await pagina.waitForSelector('[role="dialog"] #comentario', { timeout: 10000 });
+  await pagina.fill('[role="dialog"] #comentario', 'texto en curso de captura');
+  await pagina.click('[role="dialog"] button:has-text("Ver el documento")');
+  await pagina.waitForSelector('[role="dialog"][aria-label*="Documento de la planeación"]', {
+    timeout: 10000,
+  });
+  registrar(
+    'El visor se abre encima del diálogo de dictamen',
+    (await pagina.locator('[role="dialog"]').count()) === 2,
+  );
+
+  await pagina.keyboard.press('Escape');
+  await pagina.waitForTimeout(300);
+  registrar(
+    'Escape cierra solo el visor y conserva el dictamen a medio capturar',
+    (await pagina.locator('[role="dialog"]').count()) === 1 &&
+      (await pagina.inputValue('[role="dialog"] #comentario')) ===
+        'texto en curso de captura',
+  );
+  // Solicitar ajustes exige un comentario; el DTO pide al menos 10 caracteres.
   await pagina.fill('[role="dialog"] #comentario', 'corto');
   await pagina.click('[role="dialog"] button[type="submit"]');
   await pagina.waitForTimeout(300);
@@ -271,7 +324,7 @@ try {
 
   registrar(
     'El docente ve su propio documento adjunto',
-    (await pagina.locator('a:has-text("Ver documento adjunto")').count()) > 0,
+    (await pagina.locator('button:has-text("Ver documento adjunto")').count()) > 0,
   );
 
   await pagina.click('button:has-text("Registrar planeación")');
