@@ -77,6 +77,14 @@ try {
     'El sello muestra el estado aprobado',
     (await pagina.locator('.sello', { hasText: 'Aprobada' }).count()) > 0,
   );
+
+  // La accion sobre una planeacion ya enviada es modificarla, no corregirla:
+  // el verbo no debe dar por hecho que habia un error.
+  registrar(
+    'La accion sobre la planeacion se enuncia como modificar',
+    (await pagina.locator('button:has-text("Modificar")').count()) > 0 &&
+      (await pagina.locator('button:has-text("Corregir")').count()) === 0,
+  );
   registrar(
     'El comentario de revisión aparece cuando hay ajustes',
     (await pagina.locator('text=Falta precisar los instrumentos').count()) > 0,
@@ -190,6 +198,120 @@ try {
     'Ofrece la exportación a Excel y a PDF',
     (await pagina.locator('button:has-text("Descargar Excel")').count()) > 0 &&
       (await pagina.locator('button:has-text("Descargar PDF")').count()) > 0,
+  );
+
+  // --- Desglose de la grafica ----------------------------------------------
+  // La cifra agregada tiene que poder abrirse: tres cumplidos en el primer
+  // parcial son tres registros con nombre, y eso es lo que se comprueba.
+  registrar(
+    'Cada segmento de la pila ofrece su desglose',
+    (await pagina.locator('button:has-text("No cumplido (")').count()) === 3,
+  );
+
+  await pagina.click('button:has-text("Cumplido (3)")');
+  await pagina.waitForSelector('[role="dialog"]', { timeout: 10000 });
+
+  registrar(
+    'El desglose nombra el estado y el parcial que abre',
+    (await pagina.locator('[role="dialog"] h2:has-text("Avances cumplidos")').count()) > 0 &&
+      (await pagina.locator('[role="dialog"] >> text=/Parcial 1 . 3 registros/').count()) > 0,
+  );
+
+  registrar(
+    'El desglose lista tantos registros como dice la cifra',
+    (await pagina.locator('[role="dialog"] ul > li').count()) === 3,
+  );
+
+  registrar(
+    'El desglose dice de quien es cada avance',
+    (await pagina
+      .locator('[role="dialog"] >> text=Maria Fernanda Vargas Leon')
+      .count()) > 0,
+  );
+
+  // La espera deja terminar la animacion de entrada: sin ella la captura
+  // recoge el dialogo a medio aparecer.
+  await pagina.waitForTimeout(500);
+  await pagina.screenshot({ path: 'pruebas/captura-desglose.png' });
+
+  await pagina.keyboard.press('Escape');
+  await pagina.waitForTimeout(300);
+  registrar(
+    'El desglose cierra con Escape',
+    (await pagina.locator('[role="dialog"]').count()) === 0,
+  );
+
+  // --- Acotacion del reporte ------------------------------------------------
+  registrar(
+    'El reporte ofrece acotar por parcial y por docente',
+    (await pagina.locator('#filtro-parcial').count()) > 0 &&
+      (await pagina.locator('#filtro-docente').count()) > 0,
+  );
+
+  await pagina.selectOption('#filtro-parcial', '2');
+  await pagina.waitForTimeout(600);
+  registrar(
+    'Acotar por parcial reduce el desglose a ese parcial',
+    (await pagina.locator('button:has-text("No cumplido (")').count()) === 1,
+  );
+
+  await pagina.selectOption('#filtro-docente', 'd1');
+  await pagina.waitForTimeout(600);
+  registrar(
+    'Acotar por docente reduce la tabla de detalle a ese docente',
+    (await pagina.locator('table tbody tr').count()) === 1,
+  );
+
+  // La acotacion tiene que llegar hasta el archivo, no quedarse en pantalla.
+  const peticionDeExportacion = pagina.waitForRequest(
+    (p) => p.url().includes('/reportes/exportar/excel'),
+    { timeout: 10000 },
+  );
+  await pagina.click('button:has-text("Descargar Excel")');
+  const urlExportacion = (await peticionDeExportacion).url();
+  registrar(
+    'La acotacion viaja en la peticion de descarga',
+    urlExportacion.includes('parcial=2') && urlExportacion.includes('docenteId=d1'),
+    urlExportacion.slice(urlExportacion.indexOf('?')),
+  );
+
+  await pagina.click('button:has-text("Quitar acotación")');
+  await pagina.waitForTimeout(600);
+  registrar(
+    'Quitar la acotación devuelve el reporte completo',
+    (await pagina.locator('table tbody tr').count()) === 2,
+  );
+
+  // --- Ancho util y contencion del texto -----------------------------------
+  await pagina.setViewportSize({ width: 1600, height: 900 });
+  await pagina.waitForTimeout(400);
+  const anchoUtil = await pagina.evaluate(() => {
+    const principal = document.querySelector('main');
+    return principal ? Math.round(principal.getBoundingClientRect().width) : 0;
+  });
+  registrar(
+    'El contenido aprovecha el ancho de la pantalla',
+    anchoUtil > 1400,
+    `${anchoUtil} px de 1600`,
+  );
+
+  // Una cadena sin espacios no tiene donde partirse: si la regla de contencion
+  // faltara, se saldria de su caja y pisaria lo que tenga al lado.
+  const excedente = await pagina.evaluate(() => {
+    const celda = document.querySelector('table tbody tr td span');
+    if (!celda) return -1;
+    const original = celda.textContent;
+    celda.textContent = 'x'.repeat(400);
+    const salida = Math.round(
+      celda.getBoundingClientRect().right - celda.parentElement.getBoundingClientRect().right,
+    );
+    celda.textContent = original;
+    return salida;
+  });
+  registrar(
+    'Una cadena larga sin espacios no se sale de su caja',
+    excedente <= 0,
+    `${excedente} px de excedente`,
   );
 
   // --- Diseño adaptable ----------------------------------------------------
@@ -450,9 +572,10 @@ try {
 
   await pagina.selectOption('#filtroEstado', 'CUMPLIDO');
   await pagina.waitForTimeout(300);
+  // De los seis avances del periodo, tres estan clasificados como cumplidos.
   registrar(
     'El filtro de cumplimiento reduce el listado',
-    (await pagina.locator('text=/Informado del .* al /').count()) === 1,
+    (await pagina.locator('text=/Informado del .* al /').count()) === 3,
   );
   await pagina.screenshot({ path: 'pruebas/captura-seguimiento.png', fullPage: true });
 
