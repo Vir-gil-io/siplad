@@ -9,6 +9,8 @@ import { AreaTexto, Boton } from '../components/Controles';
 import { Cargando } from '../components/Cargando';
 import { Dialogo } from '../components/Dialogo';
 import { Sello } from '../components/Sello';
+import { BotonDocumento } from '../components/Controles';
+import { VisorDocumento } from '../components/VisorDocumento';
 import { Vacio } from '../components/Vacio';
 import {
   LIMITES,
@@ -33,6 +35,10 @@ export function ValidacionEvidencias() {
   );
 
   const [enValidacion, establecerEnValidacion] = useState<Evidencia | null>(null);
+
+  // El visor se comparte entre la bandeja y el diálogo de validación, que
+  // puede abrirlo encima sin perder la resolución a medio capturar.
+  const [enVisor, establecerEnVisor] = useState<Evidencia | null>(null);
   const [recienResuelto, establecerRecienResuelto] = useState<string | null>(null);
 
   const lista = datos ?? [];
@@ -84,14 +90,12 @@ export function ValidacionEvidencias() {
                     {registro.usuario.nombre} · {registro.institucion} ·{' '}
                     <span className="cifra">{registro.horas}</span> horas
                   </p>
-                  <a
-                    href={registro.archivoUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-block text-sm font-medium text-sello hover:underline"
-                  >
-                    Abrir constancia
-                  </a>
+                  <div className="mt-2.5">
+                    <BotonDocumento
+                      onVer={() => establecerEnVisor(registro)}
+                      etiqueta="Ver constancia"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
@@ -115,11 +119,21 @@ export function ValidacionEvidencias() {
         <FormularioValidacion
           evidencia={enValidacion}
           onCerrar={() => establecerEnValidacion(null)}
+          onVerDocumento={establecerEnVisor}
           onResuelto={(id) => {
             establecerEnValidacion(null);
             establecerRecienResuelto(id);
             recargar();
           }}
+        />
+      ) : null}
+
+      {enVisor ? (
+        <VisorDocumento
+          url={enVisor.archivoUrl}
+          titulo="Constancia de capacitación"
+          subtitulo={`${enVisor.usuario.nombre} · ${enVisor.nombreCurso} · ${enVisor.horas} horas`}
+          onCerrar={() => establecerEnVisor(null)}
         />
       ) : null}
     </div>
@@ -129,10 +143,12 @@ export function ValidacionEvidencias() {
 function FormularioValidacion({
   evidencia,
   onCerrar,
+  onVerDocumento,
   onResuelto,
 }: {
   evidencia: Evidencia;
   onCerrar: () => void;
+  onVerDocumento: (evidencia: Evidencia) => void;
   onResuelto: (id: string) => void;
 }) {
   const [estado, establecerEstado] = useState<EstadoEvidencia>('VALIDADA');
@@ -197,14 +213,12 @@ function FormularioValidacion({
               timeZone: 'UTC',
             })}
           </p>
-          <a
-            href={evidencia.archivoUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 inline-block text-sm font-medium text-sello hover:underline"
-          >
-            Abrir el archivo para revisarlo
-          </a>
+          <div className="mt-3 border-t border-regla pt-3">
+            <BotonDocumento
+              onVer={() => onVerDocumento(evidencia)}
+              etiqueta="Ver la constancia antes de resolver"
+            />
+          </div>
         </div>
 
         <fieldset>

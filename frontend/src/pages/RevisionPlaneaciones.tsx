@@ -5,9 +5,10 @@ import { mensajeDeError } from '../api/cliente';
 import { useCargaRemota } from '../hooks/useCargaRemota';
 import { Acta, Renglon } from '../components/Acta';
 import { Aviso } from '../components/Aviso';
-import { AreaTexto, Boton, EnlaceArchivo } from '../components/Controles';
+import { AreaTexto, Boton, BotonDocumento } from '../components/Controles';
 import { Cargando } from '../components/Cargando';
 import { Dialogo } from '../components/Dialogo';
+import { VisorDocumento } from '../components/VisorDocumento';
 import { Sello } from '../components/Sello';
 import { Vacio } from '../components/Vacio';
 import {
@@ -37,6 +38,10 @@ export function RevisionPlaneaciones() {
   );
 
   const [enRevision, establecerEnRevision] = useState<Planeacion | null>(null);
+
+  // Una sola instancia del visor atiende a la bandeja y al diálogo de
+  // dictamen, que puede abrirlo encima sin perder el formulario a medias.
+  const [enVisor, establecerEnVisor] = useState<Planeacion | null>(null);
   const [recienResuelto, establecerRecienResuelto] = useState<string | null>(null);
 
   const lista = datos ?? [];
@@ -96,7 +101,7 @@ export function RevisionPlaneaciones() {
 
                   {registro.archivoUrl ? (
                     <div className="mt-2.5">
-                      <EnlaceArchivo url={registro.archivoUrl} />
+                      <BotonDocumento onVer={() => establecerEnVisor(registro)} />
                     </div>
                   ) : null}
                 </div>
@@ -122,11 +127,21 @@ export function RevisionPlaneaciones() {
         <FormularioDictamen
           planeacion={enRevision}
           onCerrar={() => establecerEnRevision(null)}
+          onVerDocumento={establecerEnVisor}
           onResuelto={(id) => {
             establecerEnRevision(null);
             establecerRecienResuelto(id);
             recargar();
           }}
+        />
+      ) : null}
+
+      {enVisor?.archivoUrl ? (
+        <VisorDocumento
+          url={enVisor.archivoUrl}
+          titulo="Documento de la planeación"
+          subtitulo={`${enVisor.usuario.nombre} · ${enVisor.materia.nombre} · Parcial ${enVisor.parcial}`}
+          onCerrar={() => establecerEnVisor(null)}
         />
       ) : null}
     </div>
@@ -136,10 +151,12 @@ export function RevisionPlaneaciones() {
 function FormularioDictamen({
   planeacion,
   onCerrar,
+  onVerDocumento,
   onResuelto,
 }: {
   planeacion: Planeacion;
   onCerrar: () => void;
+  onVerDocumento: (planeacion: Planeacion) => void;
   onResuelto: (id: string) => void;
 }) {
   const [estado, establecerEstado] = useState<EstadoPlaneacion>('APROBADA');
@@ -204,9 +221,9 @@ function FormularioDictamen({
 
           {planeacion.archivoUrl ? (
             <div className="mt-3 border-t border-regla pt-3">
-              <EnlaceArchivo
-                url={planeacion.archivoUrl}
-                etiqueta="Abrir el documento antes de dictaminar"
+              <BotonDocumento
+                onVer={() => onVerDocumento(planeacion)}
+                etiqueta="Ver el documento antes de dictaminar"
               />
             </div>
           ) : null}

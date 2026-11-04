@@ -12,6 +12,11 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "incremental": true,
+    // El registro de compilacion incremental vive dentro de la carpeta de
+    // salida a proposito. La configuracion de Nest borra esa carpeta antes de
+    // compilar; si el registro quedara fuera, TypeScript concluiria que nada
+    // cambio y no emitiria nada, dejando «0 errores» y un dist inexistente.
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "skipLibCheck": true,
     "strictNullChecks": false,
     "noImplicitAny": false,
