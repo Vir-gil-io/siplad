@@ -13,6 +13,7 @@ import type {
   PeriodoAcademico,
   Planeacion,
   RespuestaAutenticacion,
+  FiltroReporte,
 } from '../types';
 
 /**
@@ -178,34 +179,48 @@ export const evidencias = {
 
 // --- Web Service 5: Reportes institucionales -------------------------------
 
+/**
+ * Nombre con el que se guarda el archivo descargado.
+ *
+ * El criterio aplicado viaja en el nombre: de otro modo, dos descargas del
+ * mismo dia con acotaciones distintas se sobrescriben en la carpeta de
+ * descargas y quien las recibe no sabe cual es cual.
+ */
+function sufijoDeArchivo(filtro: FiltroReporte): string {
+  const partes: string[] = [];
+  if (filtro.parcial) partes.push(`parcial${filtro.parcial}`);
+  if (filtro.docenteId) partes.push('docente');
+  return partes.length > 0 ? `-${partes.join('-')}` : '';
+}
+
 export const reportes = {
-  indicadores: (periodoId?: string) =>
+  indicadores: (filtro: FiltroReporte = {}) =>
     cliente
-      .get<IndicadoresGlobales>('/reportes/indicadores', { params: { periodoId } })
+      .get<IndicadoresGlobales>('/reportes/indicadores', { params: filtro })
       .then((r) => r.data),
 
-  porDocente: (periodoId?: string) =>
+  porDocente: (filtro: FiltroReporte = {}) =>
     cliente
-      .get<FilaReporteDocente[]>('/reportes/por-docente', { params: { periodoId } })
+      .get<FilaReporteDocente[]>('/reportes/por-docente', { params: filtro })
       .then((r) => r.data),
 
-  porParcial: (periodoId?: string) =>
+  porParcial: (filtro: FiltroReporte = {}) =>
     cliente
-      .get<FilaReportePorParcial[]>('/reportes/por-parcial', { params: { periodoId } })
+      .get<FilaReportePorParcial[]>('/reportes/por-parcial', { params: filtro })
       .then((r) => r.data),
 
-  porMateria: (periodoId?: string) =>
+  porMateria: (filtro: FiltroReporte = {}) =>
     cliente
-      .get<FilaReportePorMateria[]>('/reportes/por-materia', { params: { periodoId } })
+      .get<FilaReportePorMateria[]>('/reportes/por-materia', { params: filtro })
       .then((r) => r.data),
 
   /**
    * Descarga el reporte. La respuesta es binaria, así que se solicita como
    * blob y se dispara la descarga desde un enlace temporal.
    */
-  descargar: async (formato: 'excel' | 'pdf', periodoId?: string) => {
+  descargar: async (formato: 'excel' | 'pdf', filtro: FiltroReporte = {}) => {
     const respuesta = await cliente.get(`/reportes/exportar/${formato}`, {
-      params: { periodoId },
+      params: filtro,
       responseType: 'blob',
     });
 
@@ -215,7 +230,7 @@ export const reportes = {
 
     const enlace = document.createElement('a');
     enlace.href = url;
-    enlace.download = `siplad-reporte-${fecha}.${extension}`;
+    enlace.download = `siplad-reporte${sufijoDeArchivo(filtro)}-${fecha}.${extension}`;
     document.body.appendChild(enlace);
     enlace.click();
     document.body.removeChild(enlace);

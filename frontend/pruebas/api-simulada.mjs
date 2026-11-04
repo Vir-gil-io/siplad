@@ -25,6 +25,7 @@ const periodo = {
 };
 
 const docente = { id: 'd1', nombre: 'Jorge Alberto Correa Nunez', email: 'jcorrea@utng.edu.mx' };
+const docenteDos = { id: 'd2', nombre: 'Maria Fernanda Vargas Leon', email: 'mvargas@utng.edu.mx' };
 const coordinador = {
   id: 'c1',
   nombre: 'Laura Beatriz Mendoza Rivas',
@@ -32,7 +33,7 @@ const coordinador = {
   rol: 'COORDINADOR',
 };
 
-const planeacion = (id, estado, parcial, avance) => ({
+const planeacion = (id, estado, parcial, avance, autor = docente) => ({
   id,
   parcial,
   contenido:
@@ -47,7 +48,7 @@ const planeacion = (id, estado, parcial, avance) => ({
       : null,
   revisadoEn: estado === 'ENVIADA' ? null : '2026-10-01T12:00:00.000Z',
   creadaEn: '2026-09-01T12:00:00.000Z',
-  usuarioId: docente.id,
+  usuarioId: autor.id,
   materiaId: materias[0].id,
   periodoId: periodo.id,
   materia: materias[0],
@@ -58,7 +59,7 @@ const planeacion = (id, estado, parcial, avance) => ({
     fechaInicio: periodo.fechaInicio,
     fechaFin: periodo.fechaFin,
   },
-  usuario: docente,
+  usuario: autor,
   revisadoPor: estado === 'ENVIADA' ? null : { id: coordinador.id, nombre: coordinador.nombre },
   avance: avance ?? null,
 });
@@ -73,6 +74,59 @@ const avanceDeEjemplo = {
   observaciones: null,
   registradoEn: '2026-10-05T12:00:00.000Z',
   planeacionId: 'pl1',
+};
+
+/**
+ * Los seis avances del periodo.
+ *
+ * Las cifras agregadas de los reportes se calculan a partir de esta lista, no
+ * se escriben a mano: asi el desglose que abre una barra de la grafica coincide
+ * siempre con la cifra que la barra muestra, que es justo lo que el desglose
+ * tiene que demostrar.
+ */
+const AVANCES = [
+  { id: 'av1', parcial: 1, autor: docente, porcentaje: 92, estado: 'CUMPLIDO' },
+  { id: 'av2', parcial: 1, autor: docente, porcentaje: 88, estado: 'CUMPLIDO' },
+  { id: 'av3', parcial: 1, autor: docenteDos, porcentaje: 95, estado: 'CUMPLIDO' },
+  { id: 'av4', parcial: 1, autor: docente, porcentaje: 71, estado: 'PARCIAL',
+    observaciones: 'Falto cubrir el ultimo bloque por suspension oficial de labores.' },
+  { id: 'av5', parcial: 2, autor: docente, porcentaje: 68, estado: 'PARCIAL' },
+  { id: 'av6', parcial: 2, autor: docenteDos, porcentaje: 47, estado: 'NO_CUMPLIDO',
+    observaciones: 'Se perdieron sesiones por el periodo de evaluaciones extraordinarias.' },
+].map((a) => ({
+  ...avanceDeEjemplo,
+  id: a.id,
+  porcentaje: a.porcentaje,
+  estado: a.estado,
+  observaciones: a.observaciones ?? null,
+  planeacionId: `pl-${a.id}`,
+  planeacion: planeacion(`pl-${a.id}`, 'APROBADA', a.parcial, null, a.autor),
+}));
+
+/** Acota la lista por lo mismo que el servidor real: parcial y docente. */
+const acotar = (consulta) =>
+  AVANCES.filter(
+    (a) =>
+      (!consulta.get('parcial') || a.planeacion.parcial === Number(consulta.get('parcial'))) &&
+      (!consulta.get('docenteId') || a.planeacion.usuarioId === consulta.get('docenteId')),
+  );
+
+const contar = (lista, estado) => lista.filter((a) => a.estado === estado).length;
+const promediar = (lista) =>
+  lista.length === 0
+    ? 0
+    : Math.round((lista.reduce((t, a) => t + a.porcentaje, 0) / lista.length) * 10) / 10;
+
+/** El bloque de avances de los indicadores, calculado sobre la lista acotada. */
+const bloqueDeAvances = (consulta) => {
+  const lista = acotar(consulta);
+  return {
+    total: lista.length,
+    cumplidos: contar(lista, 'CUMPLIDO'),
+    parciales: contar(lista, 'PARCIAL'),
+    noCumplidos: contar(lista, 'NO_CUMPLIDO'),
+    porcentajePromedio: promediar(lista),
+  };
 };
 
 const RUTAS = {
@@ -100,27 +154,7 @@ const RUTAS = {
   'GET /api/catalogos/periodos/activo': () => ({ estado: 200, datos: periodo }),
   'GET /api/catalogos/periodos': () => ({ estado: 200, datos: [periodo] }),
 
-  'GET /api/avances': () => ({
-    estado: 200,
-    datos: [
-      {
-        ...avanceDeEjemplo,
-        planeacion: planeacion('pl1', 'APROBADA', 1, null),
-      },
-      {
-        ...avanceDeEjemplo,
-        id: 'av2',
-        porcentaje: 55,
-        estado: 'NO_CUMPLIDO',
-        fechaInicio: '2026-09-28T00:00:00.000Z',
-        fechaFin: '2026-10-23T23:59:59.999Z',
-        diasHabiles: 18,
-        observaciones: 'Se perdieron sesiones por suspension oficial de labores.',
-        planeacionId: 'pl2',
-        planeacion: planeacion('pl2', 'APROBADA', 2, null),
-      },
-    ],
-  }),
+  'GET /api/avances': () => ({ estado: 200, datos: AVANCES }),
 
   'GET /api/planeaciones': (_c, _a, consulta) => {
     const todas = [
@@ -184,7 +218,12 @@ const RUTAS = {
     return { estado: 200, datos: estado ? todas.filter((e) => e.estado === estado) : todas };
   },
 
-  'GET /api/reportes/indicadores': () => ({
+  // La exportacion solo necesita responder algo descargable: lo que la prueba
+  // comprueba es que la acotacion elegida en pantalla viaje en la peticion.
+  'GET /api/reportes/exportar/excel': () => ({ estado: 200, datos: { archivo: 'simulado' } }),
+  'GET /api/reportes/exportar/pdf': () => ({ estado: 200, datos: { archivo: 'simulado' } }),
+
+  'GET /api/reportes/indicadores': (_c, _a, consulta) => ({
     estado: 200,
     datos: {
       periodo: {
@@ -201,13 +240,7 @@ const RUTAS = {
         ajustesSolicitados: 1,
         porcentajeCumplimiento: 66.7,
       },
-      avances: {
-        total: 6,
-        cumplidos: 3,
-        parciales: 2,
-        noCumplidos: 1,
-        porcentajePromedio: 81.7,
-      },
+      avances: bloqueDeAvances(consulta),
       capacitacion: {
         evidenciasValidadas: 3,
         evidenciasPendientes: 1,
@@ -219,42 +252,51 @@ const RUTAS = {
     },
   }),
 
-  'GET /api/reportes/por-docente': () => ({
-    estado: 200,
-    datos: [
-      {
-        docenteId: 'd1',
-        docente: 'Jorge Alberto Correa Nunez',
-        email: 'jcorrea@utng.edu.mx',
-        planeacionesRegistradas: 4,
-        planeacionesAprobadas: 3,
-        porcentajeCumplimientoPlaneacion: 75,
-        avancesRegistrados: 3,
-        promedioAvance: 91.7,
-        horasAcreditadas: 60,
-      },
-      {
-        docenteId: 'd2',
-        docente: 'Maria Fernanda Vargas Leon',
-        email: 'mvargas@utng.edu.mx',
-        planeacionesRegistradas: 3,
-        planeacionesAprobadas: 2,
-        porcentajeCumplimientoPlaneacion: 66.7,
-        avancesRegistrados: 2,
-        promedioAvance: 65,
-        horasAcreditadas: 25,
-      },
-    ],
-  }),
+  'GET /api/reportes/por-docente': (_c, _a, consulta) => {
+    const filas = [docente, docenteDos]
+      .filter((d) => !consulta.get('docenteId') || d.id === consulta.get('docenteId'))
+      .map((d) => {
+        const suyos = acotar(consulta).filter((a) => a.planeacion.usuarioId === d.id);
+        const registradas = d.id === 'd1' ? 4 : 3;
+        const aprobadas = d.id === 'd1' ? 3 : 2;
+        return {
+          docenteId: d.id,
+          docente: d.nombre,
+          email: d.email,
+          planeacionesRegistradas: registradas,
+          planeacionesAprobadas: aprobadas,
+          porcentajeCumplimientoPlaneacion:
+            Math.round((aprobadas / registradas) * 1000) / 10,
+          avancesRegistrados: suyos.length,
+          promedioAvance: promediar(suyos),
+          horasAcreditadas: d.id === 'd1' ? 60 : 25,
+        };
+      });
+    return { estado: 200, datos: filas };
+  },
 
-  'GET /api/reportes/por-parcial': () => ({
-    estado: 200,
-    datos: [
-      { parcial: 1, planeaciones: 4, aprobadas: 4, avancesRegistrados: 4, cumplidos: 3, parciales: 1, noCumplidos: 0, promedioAvance: 93.8 },
-      { parcial: 2, planeaciones: 3, aprobadas: 2, avancesRegistrados: 2, cumplidos: 0, parciales: 1, noCumplidos: 1, promedioAvance: 57.5 },
-      { parcial: 3, planeaciones: 2, aprobadas: 0, avancesRegistrados: 0, cumplidos: 0, parciales: 0, noCumplidos: 0, promedioAvance: 0 },
-    ],
-  }),
+  'GET /api/reportes/por-parcial': (_c, _a, consulta) => {
+    const pedido = consulta.get('parcial');
+    const parciales = pedido ? [Number(pedido)] : [1, 2, 3];
+    const lista = acotar(consulta);
+
+    return {
+      estado: 200,
+      datos: parciales.map((parcial) => {
+        const delParcial = lista.filter((a) => a.planeacion.parcial === parcial);
+        return {
+          parcial,
+          planeaciones: { 1: 4, 2: 3, 3: 2 }[parcial] ?? 0,
+          aprobadas: { 1: 4, 2: 2, 3: 0 }[parcial] ?? 0,
+          avancesRegistrados: delParcial.length,
+          cumplidos: contar(delParcial, 'CUMPLIDO'),
+          parciales: contar(delParcial, 'PARCIAL'),
+          noCumplidos: contar(delParcial, 'NO_CUMPLIDO'),
+          promedioAvance: promediar(delParcial),
+        };
+      }),
+    };
+  },
 };
 
 let perfilActual = { ...docente, rol: 'PROFESOR' };

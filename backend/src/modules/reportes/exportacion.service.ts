@@ -3,6 +3,7 @@ import * as ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 
 import { ReportesService } from './reportes.service';
+import type { FiltroReporte } from './dto/filtrar-reporte.dto';
 
 /**
  * Exportacion de reportes institucionales a PDF y a Excel.
@@ -18,12 +19,12 @@ export class ExportacionService {
 
   constructor(private readonly reportes: ReportesService) {}
 
-  async generarExcel(periodoId?: string): Promise<Buffer> {
+  async generarExcel(filtro: FiltroReporte = {}): Promise<Buffer> {
     const [indicadores, docentes, parciales, materias] = await Promise.all([
-      this.reportes.indicadoresGlobales(periodoId),
-      this.reportes.porDocente(periodoId),
-      this.reportes.porParcial(periodoId),
-      this.reportes.porMateria(periodoId),
+      this.reportes.indicadoresGlobales(filtro),
+      this.reportes.porDocente(filtro),
+      this.reportes.porParcial(filtro),
+      this.reportes.porMateria(filtro),
     ]);
 
     const libro = new ExcelJS.Workbook();
@@ -121,11 +122,11 @@ export class ExportacionService {
     return Buffer.from(datos);
   }
 
-  async generarPdf(periodoId?: string): Promise<Buffer> {
+  async generarPdf(filtro: FiltroReporte = {}): Promise<Buffer> {
     const [indicadores, docentes, parciales] = await Promise.all([
-      this.reportes.indicadoresGlobales(periodoId),
-      this.reportes.porDocente(periodoId),
-      this.reportes.porParcial(periodoId),
+      this.reportes.indicadoresGlobales(filtro),
+      this.reportes.porDocente(filtro),
+      this.reportes.porParcial(filtro),
     ]);
 
     return new Promise((resolver, rechazar) => {
@@ -163,6 +164,15 @@ export class ExportacionService {
               `Generado el ${new Date().toLocaleString('es-MX')}`,
             { align: 'center' },
           );
+
+        // Un reporte acotado debe decirlo en la portada: de otro modo es
+        // indistinguible de uno completo y quien lo recibe lee cifras
+        // parciales creyendolas totales.
+        const acotacion = ExportacionService.describirAcotacion(filtro, docentes);
+        if (acotacion) {
+          doc.text(acotacion, { align: 'center' });
+        }
+
         doc.fillColor('#000000');
         doc.moveDown(1);
 
@@ -238,9 +248,50 @@ export class ExportacionService {
     });
   }
 
+  /**
+   * Titulo de seccion.
+   *
+   * Se devuelve el cursor al margen izquierdo antes de escribir. Las tablas
+   * situan cada celda con coordenadas absolutas, y PDFKit conserva como
+   * posicion actual la de la ultima celda dibujada: sin este reajuste, el
+   * titulo siguiente aparece desplazado al extremo derecho de la hoja.
+   */
   private tituloSeccion(doc: PDFKit.PDFDocument, texto: string) {
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#1F3864').text(texto);
+    doc.x = doc.page.margins.left;
+    doc
+      .fontSize(11)
+      .font('Helvetica-Bold')
+      .fillColor('#1F3864')
+      .text(texto, {
+        align: 'left',
+        width: ExportacionService.anchoUtil(doc),
+      });
     doc.fillColor('#000000').moveDown(0.4);
+  }
+
+  /**
+   * Enuncia la acotacion aplicada, para imprimirla bajo el titulo.
+   *
+   * El docente se nombra a partir de las filas ya calculadas: cuando el
+   * reporte viene acotado a uno solo, esa lista trae exactamente su fila, de
+   * modo que no hace falta una consulta adicional para conocer su nombre.
+   */
+  private static describirAcotacion(
+    filtro: FiltroReporte,
+    docentes: { docenteId: string; docente: string }[],
+  ): string | null {
+    const partes: string[] = [];
+    if (filtro.parcial) partes.push(`Parcial ${filtro.parcial}`);
+    if (filtro.docenteId) {
+      const fila = docentes.find((d) => d.docenteId === filtro.docenteId);
+      partes.push(`Docente: ${fila?.docente ?? 'no encontrado'}`);
+    }
+    return partes.length > 0 ? `Reporte acotado a  ${partes.join('   |   ')}` : null;
+  }
+
+  /** Ancho disponible entre margenes. */
+  private static anchoUtil(doc: PDFKit.PDFDocument): number {
+    return doc.page.width - doc.page.margins.left - doc.page.margins.right;
   }
 
   private dibujarTabla(
@@ -280,16 +331,28 @@ export class ExportacionService {
         .lineWidth(0.5)
         .stroke();
 
+      // Se restituyen ambas coordenadas: el posicionamiento absoluto de las
+      // celdas deja el cursor en la ultima columna, y lo que venga despues
+      // debe arrancar del margen.
+      doc.x = inicioX;
       doc.y = y + alturaFila;
     };
 
     escribirFila(encabezados, true);
 
     if (filas.length === 0) {
-      doc.fontSize(8).font('Helvetica-Oblique').text('Sin registros en el periodo.');
+      doc.x = inicioX;
+      doc
+        .fontSize(8)
+        .font('Helvetica-Oblique')
+        .text('Sin registros en el periodo.', {
+          width: ExportacionService.anchoUtil(doc),
+        });
+      doc.x = inicioX;
       return;
     }
 
     filas.forEach((fila) => escribirFila(fila, false));
+    doc.x = inicioX;
   }
 }

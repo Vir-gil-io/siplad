@@ -108,12 +108,12 @@ describe('ExportacionService', () => {
     });
 
     it('consulta las cuatro vistas del reporte', async () => {
-      await servicio.generarExcel('per-1');
+      await servicio.generarExcel({ periodoId: 'per-1' });
 
-      expect(reportes.indicadoresGlobales).toHaveBeenCalledWith('per-1');
-      expect(reportes.porDocente).toHaveBeenCalledWith('per-1');
-      expect(reportes.porParcial).toHaveBeenCalledWith('per-1');
-      expect(reportes.porMateria).toHaveBeenCalledWith('per-1');
+      expect(reportes.indicadoresGlobales).toHaveBeenCalledWith({ periodoId: 'per-1' });
+      expect(reportes.porDocente).toHaveBeenCalledWith({ periodoId: 'per-1' });
+      expect(reportes.porParcial).toHaveBeenCalledWith({ periodoId: 'per-1' });
+      expect(reportes.porMateria).toHaveBeenCalledWith({ periodoId: 'per-1' });
     });
 
     it('genera el libro aunque no existan registros en el periodo', async () => {
@@ -124,6 +124,23 @@ describe('ExportacionService', () => {
       const archivo = await servicio.generarExcel();
 
       expect(archivo.subarray(0, 2).toString()).toBe('PK');
+    });
+  });
+
+  describe('acotacion del reporte', () => {
+    it('traslada parcial y docente a las cuatro vistas', async () => {
+      const filtro = { periodoId: 'per-1', parcial: 2, docenteId: 'doc-7' };
+
+      await servicio.generarExcel(filtro);
+
+      for (const vista of [
+        reportes.indicadoresGlobales,
+        reportes.porDocente,
+        reportes.porParcial,
+        reportes.porMateria,
+      ]) {
+        expect(vista).toHaveBeenCalledWith(filtro);
+      }
     });
   });
 
@@ -138,10 +155,10 @@ describe('ExportacionService', () => {
     });
 
     it('respeta el periodo solicitado', async () => {
-      await servicio.generarPdf('per-9');
+      await servicio.generarPdf({ periodoId: 'per-9' });
 
-      expect(reportes.indicadoresGlobales).toHaveBeenCalledWith('per-9');
-      expect(reportes.porDocente).toHaveBeenCalledWith('per-9');
+      expect(reportes.indicadoresGlobales).toHaveBeenCalledWith({ periodoId: 'per-9' });
+      expect(reportes.porDocente).toHaveBeenCalledWith({ periodoId: 'per-9' });
     });
 
     it('genera el documento aunque no existan registros en el periodo', async () => {

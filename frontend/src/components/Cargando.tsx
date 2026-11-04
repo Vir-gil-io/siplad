@@ -6,7 +6,7 @@ export function Cargando({ mensaje = 'Cargando' }: { mensaje?: string }) {
       aria-live="polite"
     >
       <span
-        className="inline-block h-3 w-3 animate-pulse rounded-full bg-sello"
+        className="late inline-block h-3 w-3 rounded-full bg-sello"
         aria-hidden="true"
       />
       <span className="text-sm">{mensaje}…</span>

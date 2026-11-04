@@ -3,6 +3,7 @@ import { EstadoAvance, EstadoEvidencia, EstadoPlaneacion } from '@prisma/client'
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { FestivosService } from '../../integrations/festivos/festivos.service';
+import type { FiltroReporte } from './dto/filtrar-reporte.dto';
 
 export interface IndicadoresGlobales {
   periodo: { id: string; nombre: string; anio: number } | null;
@@ -69,6 +70,28 @@ export class ReportesService {
   ) {}
 
   /** Resuelve el periodo solicitado o, en su defecto, el periodo activo. */
+  /**
+   * Construye el fragmento de filtrado que comparten todas las consultas.
+   *
+   * El parcial y el docente acotan planeaciones; las evidencias no tienen
+   * parcial, de modo que para ellas solo aplica el docente. Separar los dos
+   * fragmentos evita filtrar por una propiedad que ese modelo no posee.
+   */
+  private filtroPlaneaciones(periodoId: string | undefined, filtro: FiltroReporte) {
+    return {
+      ...(periodoId && { periodoId }),
+      ...(filtro.parcial && { parcial: filtro.parcial }),
+      ...(filtro.docenteId && { usuarioId: filtro.docenteId }),
+    };
+  }
+
+  private filtroEvidencias(periodoId: string | undefined, filtro: FiltroReporte) {
+    return {
+      ...(periodoId && { periodoId }),
+      ...(filtro.docenteId && { usuarioId: filtro.docenteId }),
+    };
+  }
+
   private async resolverPeriodo(periodoId?: string) {
     if (periodoId) {
       return this.prisma.periodoAcademico.findUnique({ where: { id: periodoId } });
@@ -76,21 +99,22 @@ export class ReportesService {
     return this.prisma.periodoAcademico.findFirst({ where: { activo: true } });
   }
 
-  async indicadoresGlobales(periodoId?: string): Promise<IndicadoresGlobales> {
-    const periodo = await this.resolverPeriodo(periodoId);
-    const filtroPeriodo = periodo ? { periodoId: periodo.id } : {};
+  async indicadoresGlobales(filtro: FiltroReporte = {}): Promise<IndicadoresGlobales> {
+    const periodo = await this.resolverPeriodo(filtro.periodoId);
+    const dePlaneacion = this.filtroPlaneaciones(periodo?.id, filtro);
+    const deEvidencia = this.filtroEvidencias(periodo?.id, filtro);
 
     const [planeaciones, avances, evidencias] = await Promise.all([
       this.prisma.planeacion.findMany({
-        where: filtroPeriodo,
+        where: dePlaneacion,
         select: { estado: true },
       }),
       this.prisma.avance.findMany({
-        where: { planeacion: filtroPeriodo },
+        where: { planeacion: dePlaneacion },
         select: { estado: true, porcentaje: true },
       }),
       this.prisma.evidencia.findMany({
-        where: filtroPeriodo,
+        where: deEvidencia,
         select: { estado: true, horas: true, usuarioId: true },
       }),
     ]);
@@ -149,19 +173,24 @@ export class ReportesService {
     };
   }
 
-  async porDocente(periodoId?: string): Promise<FilaReporteDocente[]> {
-    const periodo = await this.resolverPeriodo(periodoId);
-    const filtroPeriodo = periodo ? { periodoId: periodo.id } : {};
+  async porDocente(filtro: FiltroReporte = {}): Promise<FilaReporteDocente[]> {
+    const periodo = await this.resolverPeriodo(filtro.periodoId);
+    const dePlaneacion = this.filtroPlaneaciones(periodo?.id, filtro);
+    const deEvidencia = this.filtroEvidencias(periodo?.id, filtro);
 
     const docentes = await this.prisma.usuario.findMany({
-      where: { rol: 'PROFESOR', activo: true },
+      where: {
+        rol: 'PROFESOR',
+        activo: true,
+        ...(filtro.docenteId && { id: filtro.docenteId }),
+      },
       include: {
         planeaciones: {
-          where: filtroPeriodo,
+          where: dePlaneacion,
           include: { avance: true },
         },
         evidencias: {
-          where: { ...filtroPeriodo, estado: EstadoEvidencia.VALIDADA },
+          where: { ...deEvidencia, estado: EstadoEvidencia.VALIDADA },
           select: { horas: true },
         },
       },
@@ -194,16 +223,18 @@ export class ReportesService {
     });
   }
 
-  async porParcial(periodoId?: string): Promise<FilaReportePorParcial[]> {
-    const periodo = await this.resolverPeriodo(periodoId);
-    const filtroPeriodo = periodo ? { periodoId: periodo.id } : {};
+  async porParcial(filtro: FiltroReporte = {}): Promise<FilaReportePorParcial[]> {
+    const periodo = await this.resolverPeriodo(filtro.periodoId);
 
     const planeaciones = await this.prisma.planeacion.findMany({
-      where: filtroPeriodo,
+      where: this.filtroPlaneaciones(periodo?.id, filtro),
       include: { avance: true },
     });
 
-    return [1, 2, 3].map((parcial) => {
+    // Cuando se acota a un parcial, el desglose conserva solo esa fila.
+    const parciales = filtro.parcial ? [filtro.parcial] : [1, 2, 3];
+
+    return parciales.map((parcial) => {
       const delParcial = planeaciones.filter((p) => p.parcial === parcial);
       const avances = delParcial
         .map((p) => p.avance)
@@ -223,14 +254,16 @@ export class ReportesService {
     });
   }
 
-  async porMateria(periodoId?: string) {
-    const periodo = await this.resolverPeriodo(periodoId);
-    const filtroPeriodo = periodo ? { periodoId: periodo.id } : {};
+  async porMateria(filtro: FiltroReporte = {}) {
+    const periodo = await this.resolverPeriodo(filtro.periodoId);
 
     const materias = await this.prisma.materia.findMany({
       where: { activa: true },
       include: {
-        planeaciones: { where: filtroPeriodo, include: { avance: true } },
+        planeaciones: {
+          where: this.filtroPlaneaciones(periodo?.id, filtro),
+          include: { avance: true },
+        },
       },
       orderBy: { clave: 'asc' },
     });

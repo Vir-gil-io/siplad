@@ -53,3 +53,6 @@ tmp/
 siplad-tooling.zip
 siplad-bloque-*.zip
 restaurar-nombres.ps1
+
+# Temporales de Office
+~$*
