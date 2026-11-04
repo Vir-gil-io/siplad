@@ -159,3 +159,15 @@ export interface FilaReportePorMateria {
   aprobadas: number;
   promedioAvance: number;
 }
+
+/**
+ * Acotacion de un reporte.
+ *
+ * Son los tres criterios que el servidor admite. El periodo se omite cuando
+ * se consulta el activo, que es el caso normal.
+ */
+export interface FiltroReporte {
+  periodoId?: string;
+  parcial?: number;
+  docenteId?: string;
+}

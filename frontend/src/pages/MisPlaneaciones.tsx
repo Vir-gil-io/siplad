@@ -125,7 +125,7 @@ export function MisPlaneaciones() {
                       variante="texto"
                       onClick={() => establecerEnFormulario(registro)}
                     >
-                      Corregir
+                      Modificar
                     </Boton>
                   ) : null}
                 </div>
@@ -255,7 +255,7 @@ function FormularioPlaneacion({
 
   return (
     <Dialogo
-      titulo={esEdicion ? 'Corregir planeación' : 'Registrar planeación'}
+      titulo={esEdicion ? 'Modificar planeación' : 'Registrar planeación'}
       onCerrar={onCerrar}
     >
       <form onSubmit={(e) => void enviar(e)} className="space-y-4" noValidate>

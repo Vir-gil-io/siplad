@@ -24,7 +24,7 @@ export function Acta({
   children: ReactNode;
 }) {
   return (
-    <section className="hoja">
+    <section className="hoja aparece">
       <header className="hoja-encabezado flex flex-wrap items-end justify-between gap-3 px-4 py-3 sm:px-5">
         <div>
           <h2 className="font-titulo text-lg font-semibold text-tinta sm:text-xl">

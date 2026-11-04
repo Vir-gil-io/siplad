@@ -19,24 +19,24 @@ reportes institucionales en una sola plataforma segura.
 
 ## Módulos
 
-| Módulo | Descripción |
-|---|---|
-| Gestión de planeación didáctica | Registro y carga de planeación por materia y parcial; revisión, aprobación o solicitud de ajustes por coordinación; historial de ciclos anteriores. |
-| Control de avances por parcial | Registro del avance logrado respecto a la planeación inicial, con estado cumplido, parcial o no cumplido. |
-| Evidencias de capacitación | Carga de constancias en PDF o imagen con nombre del curso, institución emisora, fecha y horas acreditadas; validación por coordinación. |
-| Reportes y seguimiento institucional | Porcentaje de cumplimiento de planeaciones, cumplimiento de avances por parcial y cursos acreditados por periodo, con exportación a PDF y Excel. |
+| Módulo                               | Descripción                                                                                                                                         |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gestión de planeación didáctica      | Registro y carga de planeación por materia y parcial; revisión, aprobación o solicitud de ajustes por coordinación; historial de ciclos anteriores. |
+| Control de avances por parcial       | Registro del avance logrado respecto a la planeación inicial, con estado cumplido, parcial o no cumplido.                                           |
+| Evidencias de capacitación           | Carga de constancias en PDF o imagen con nombre del curso, institución emisora, fecha y horas acreditadas; validación por coordinación.             |
+| Reportes y seguimiento institucional | Porcentaje de cumplimiento de planeaciones, cumplimiento de avances por parcial y cursos acreditados por periodo, con exportación a PDF y Excel.    |
 
 ## Arquitectura
 
 Arquitectura multicapa de cinco capas:
 
-| Capa | Responsabilidad | Implementación |
-|---|---|---|
-| Presentación | Interfaz de usuario y experiencia | React + Vite + TailwindCSS |
-| Lógica de negocio | Reglas del dominio, validaciones y orquestación | NestJS (servicios y casos de uso) |
-| Datos | Persistencia y acceso a información | Prisma ORM + PostgreSQL |
-| Integración | Consumo de servicios externos | Google OAuth2, Cloudinary, Nager.Date |
-| Pruebas | Verificación automatizada y manual | Jest, Supertest, Postman |
+| Capa              | Responsabilidad                                 | Implementación                        |
+| ----------------- | ----------------------------------------------- | ------------------------------------- |
+| Presentación      | Interfaz de usuario y experiencia               | React + Vite + TailwindCSS            |
+| Lógica de negocio | Reglas del dominio, validaciones y orquestación | NestJS (servicios y casos de uso)     |
+| Datos             | Persistencia y acceso a información             | Prisma ORM + PostgreSQL               |
+| Integración       | Consumo de servicios externos                   | Google OAuth2, Cloudinary, Nager.Date |
+| Pruebas           | Verificación automatizada y manual              | Jest, Supertest, Postman              |
 
 ## Stack tecnológico
 
@@ -78,7 +78,7 @@ npm install
 npm run dev
 
 # Entorno completo con contenedores
-docker compose -f infra/docker-compose.yml up --build
+docker compose -f infra/compose.yaml up --build
 ```
 
 ## Documentación del proyecto

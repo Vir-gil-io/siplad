@@ -150,7 +150,7 @@ describe('ReportesService', () => {
     });
 
     it('usa el periodo indicado cuando se especifica', async () => {
-      await servicio.indicadoresGlobales('per-9');
+      await servicio.indicadoresGlobales({ periodoId: 'per-9' });
 
       expect(prisma.periodoAcademico.findUnique).toHaveBeenCalledWith({
         where: { id: 'per-9' },
