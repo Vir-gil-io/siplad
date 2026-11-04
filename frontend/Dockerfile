@@ -31,7 +31,7 @@ RUN npm run build
 
 
 # --- Etapa 2: servicio ------------------------------------------------------
-FROM nginx:1.27-alpine AS servicio
+FROM nginx:1.31-alpine AS servicio
 
 COPY --from=compilacion /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
