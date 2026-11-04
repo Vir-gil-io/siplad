@@ -1,0 +1,95 @@
+# ---------------------------------------------------------------------------
+# SIPLAD — Vigilancia de dependencias vulnerables
+#
+# OWASP A06 (Componentes vulnerables y desactualizados).
+#
+# El flujo de integracion continua ya ejecuta 'npm audit' en cada Pull
+# Request, pero eso solo avisa cuando alguien abre uno. Dependabot revisa de
+# forma programada y abre el Pull Request con la correccion, de modo que una
+# vulnerabilidad publicada un martes no espera a que haya trabajo pendiente
+# para salir a la luz.
+# ---------------------------------------------------------------------------
+
+version: 2
+
+updates:
+  # --- Dependencias del backend --------------------------------------------
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Mexico_City
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(deps)'
+      prefix-development: 'chore(deps-dev)'
+    labels:
+      - seguridad
+      - backend
+    groups:
+      # Las actualizaciones menores y de parche se agrupan en un solo Pull
+      # Request: de otro modo serian decenas de PR triviales a la semana.
+      menores-y-parches:
+        update-types:
+          - minor
+          - patch
+
+  # --- Dependencias del frontend -------------------------------------------
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Mexico_City
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(deps)'
+      prefix-development: 'chore(deps-dev)'
+    labels:
+      - seguridad
+      - frontend
+    groups:
+      menores-y-parches:
+        update-types:
+          - minor
+          - patch
+
+  # --- Herramientas de calidad de la raiz ----------------------------------
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: 'chore(deps)'
+    labels:
+      - seguridad
+
+  # --- Acciones de los flujos de trabajo -----------------------------------
+  # OWASP A08: una accion de terceros se ejecuta con acceso al repositorio.
+  # Mantenerlas al dia cierra la via de un artefacto comprometido.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: 'ci(deps)'
+    labels:
+      - seguridad
+      - ci
+
+  # --- Imagenes base de los contenedores -----------------------------------
+  - package-ecosystem: docker
+    directories:
+      - /backend
+      - /frontend
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: 'chore(docker)'
+    labels:
+      - seguridad
+      - infraestructura
